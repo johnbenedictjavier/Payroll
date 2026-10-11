@@ -4,16 +4,16 @@ Modern full-stack payroll management application for the Administrator and Emplo
 
 ## Applications
 
-- `app/` contains the React, Vite, TypeScript, Tailwind, and PWA frontend.
+- The repository root contains the React, Vite, TypeScript, Tailwind, and PWA frontend.
 - `supabase/` contains PostgreSQL migrations, policies, and Edge Functions.
 - `scripts/` contains migration and validation utilities.
 - The original PHP/MySQL application remains in the repository as a legacy reference until production cutover.
 
 ## Local development
 
-1. Copy `app/.env.example` to `app/.env.local` or copy the root `.env.example` values into the Vite environment.
+1. Copy `.env.example` to `.env.local` and set the Vite values.
 2. Set the Supabase URL and publishable key.
-3. Install dependencies with `npm install` inside `app/`.
+3. Install dependencies with `npm install` from the repository root.
 4. Start the frontend with `npm run dev`.
 
 The browser must only receive the Supabase publishable key. Service-role credentials are for trusted migration scripts and Supabase Edge Functions only.
@@ -26,10 +26,10 @@ Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Sup
 
 ## Deployment
 
-The frontend is configured for Vercel from the `app/` project root. When importing this repository into Vercel:
+The frontend is configured for Vercel from the repository root. When importing this repository into Vercel:
 
-1. Set **Root Directory** to `app`.
-2. Use `npm run build` as the build command and `dist` as the output directory, or let `app/vercel.json` provide those values.
+1. Leave **Root Directory** at `.`.
+2. Use `npm run build` as the build command and `dist` as the output directory, or let `vercel.json` provide those values.
 3. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as Vercel environment variables.
 4. Configure Supabase Auth redirect URLs for the deployed domain.
 
