@@ -91,7 +91,7 @@ function labeledRows(labels: string[], labelWidth = 3200, valueWidth = 7600) {
 
 async function loadLogo() {
   try {
-    const response = await fetch('/pms.png')
+    const response = await fetch(`${import.meta.env.BASE_URL}pms.png`)
     if (!response.ok) return null
     return new Uint8Array(await response.arrayBuffer())
   } catch {

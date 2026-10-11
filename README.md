@@ -34,3 +34,12 @@ The frontend is configured for Vercel from the repository root. When importing t
 4. Configure Supabase Auth redirect URLs for the deployed domain.
 
 Do not add `SUPABASE_SERVICE_ROLE_KEY` to frontend or Vercel browser environment variables.
+
+## GitHub Pages
+
+The `main` branch deploys automatically through `.github/workflows/deploy-pages.yml` to `https://johnbenedictjavier.github.io/Payroll/`. Enable **Settings → Pages → Source: GitHub Actions** once in the repository, then add these repository Actions secrets before the first deployment:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+The GitHub Pages build uses `/Payroll/` as its asset and router base. Vercel continues to use `/`.

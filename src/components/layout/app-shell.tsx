@@ -31,6 +31,8 @@ import type { Notification, Role } from '@/types/database'
 
 type NavItem = { label: string; to: string; icon: typeof LayoutDashboard; end?: boolean }
 
+const publicAsset = (name: string) => `${import.meta.env.BASE_URL}${name}`
+
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', icon: LayoutDashboard, end: true },
   { label: 'Employees', to: '/admin/employees', icon: Users },
@@ -91,10 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
        <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-gradient-to-b from-card via-card to-emerald-50/70 transition-all dark:to-emerald-950/20 lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
         <div className={cn('border-b', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
           <Link to={role === 'admin' ? '/admin' : '/employee'} className={cn('flex min-w-0 items-center gap-3', collapsed && 'justify-center')}>
-            <img src="/pms.png" alt="Paynexus Payroll" className={cn('shrink-0 object-contain', collapsed ? 'h-11 w-11' : 'h-12 w-28')} />
+             <img src={publicAsset('pms.png')} alt="Paynexus Payroll" className={cn('shrink-0 object-contain', collapsed ? 'h-11 w-11' : 'h-12 w-28')} />
             {!collapsed && <div className="min-w-0"><div className="truncate font-black tracking-tight">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{role === 'admin' ? 'Admin portal' : 'Employee portal'}</div></div>}
           </Link>
-          <div className={cn('mt-3 flex items-center gap-2', collapsed ? 'flex-col' : 'px-1')}><img src="/ccte.png" alt="CCTE" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} /><img src="/lcc.png" alt="Lipa City Colleges" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />{!collapsed && <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Lipa City Colleges<br />People operations</span>}</div>
+           <div className={cn('mt-3 flex items-center gap-2', collapsed ? 'flex-col' : 'px-1')}><img src={publicAsset('ccte.png')} alt="CCTE" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} /><img src={publicAsset('lcc.png')} alt="Lipa City Colleges" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />{!collapsed && <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Lipa City Colleges<br />People operations</span>}</div>
         </div>
         <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-hidden p-3">
           {!collapsed && <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Workspace</p>}
@@ -115,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 lg:hidden" onClick={() => setMobileOpen(false)} />}
       <aside className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-xl transition-transform lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
           <div className="flex h-20 items-center justify-between border-b px-5">
-           <div className="flex items-center gap-3"><img src="/pms.png" alt="Paynexus Payroll" className="h-11 w-16 object-contain" /><div><div className="font-black">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{role} portal</div></div></div>
+            <div className="flex items-center gap-3"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-11 w-16 object-contain" /><div><div className="font-black">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{role} portal</div></div></div>
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button>
         </div>
          <nav className="flex-1 space-y-1 p-3">{mobileNav.map((item) => <NavItem key={item.to} item={item} collapsed={false} />)}<NavItem item={{ label: 'Settings', to: role === 'admin' ? '/admin/settings' : '/employee/settings', icon: Settings }} collapsed={false} /></nav>
@@ -124,7 +126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main className={cn('min-h-screen transition-[padding] lg:pl-64', collapsed && 'lg:pl-[76px]')}>
         <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b bg-background/90 px-4 backdrop-blur sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}><Menu className="h-5 w-5" /></Button><div className="flex items-center gap-2 font-black tracking-tight lg:hidden"><img src="/pms.png" alt="Paynexus Payroll" className="h-8 w-10 object-contain" />Paynexus PMS</div><div className="hidden text-sm text-muted-foreground lg:block">{role === 'admin' ? 'Administrator workspace' : 'Your payroll workspace'}</div></div>
+          <div className="flex items-center gap-3"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}><Menu className="h-5 w-5" /></Button><div className="flex items-center gap-2 font-black tracking-tight lg:hidden"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-8 w-10 object-contain" />Paynexus PMS</div><div className="hidden text-sm text-muted-foreground lg:block">{role === 'admin' ? 'Administrator workspace' : 'Your payroll workspace'}</div></div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle theme">{darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
             <div className="relative">
