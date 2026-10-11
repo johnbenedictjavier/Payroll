@@ -29,6 +29,14 @@ export function initials(name: string | null | undefined) {
     .join('')
 }
 
+export function titleCase(value: string | null | undefined) {
+  return (value ?? '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
 export function toNumber(value: string | number | null | undefined) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0

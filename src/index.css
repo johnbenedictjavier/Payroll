@@ -21,7 +21,7 @@
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 161 76% 34%;
-    --radius: 0.85rem;
+    --radius: 0.65rem;
   }
 
   .dark {
@@ -56,4 +56,9 @@
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
   .scrollbar-subtle::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-subtle::-webkit-scrollbar-thumb { @apply rounded-full bg-slate-300 dark:bg-slate-700; }
+  .pms-profile-form .rounded-2xl { border-radius: 0.75rem; }
+  @media (max-width: 639px) {
+    .pms-profile-form .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+    .pms-profile-form .col-span-2 { grid-column: span 1 / span 1; }
+  }
 }

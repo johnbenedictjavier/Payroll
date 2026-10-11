@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import { ArrowLeft, BriefcaseBusiness, Check, ChevronDown, FileDown, FileText, FileUp, Plus, Save, Trash2, Upload, UserRound } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,10 +11,10 @@ import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getEmployeeDocumentUrl, getEmployeeProfile, listDepartments, listPositions, previewNextEmployeeNumber, provisionEmployeeAccount, saveEmployeeProfile, uploadEmployeeDocument, uploadEmployeePhoto } from '@/services/api'
+import { getEmployeeDocumentUrl, getEmployeePhotoUrl, getEmployeeProfile, listDepartments, listPositions, previewNextEmployeeNumber, provisionEmployeeAccount, saveEmployeeProfile, uploadEmployeeDocument, uploadEmployeePhoto } from '@/services/api'
 import { downloadEmployeeTemplate, parseEmployeeDocument, type ParsedEmployeeDocument } from '@/services/employee-docx'
 import type { CharacterReference, Dependent, EducationalBackground, EmergencyContact, EmployeeIdentifier, EmployeeProfileData, EmployeeProfilePayload, EmploymentStatus, SalaryType } from '@/types/database'
-import { formatDate } from '@/lib/utils'
+import { formatDate, titleCase } from '@/lib/utils'
 
 type AssignmentForm = { id?: string; department_id: string; position_id: string; department_name?: string; position_name?: string; start_date: string; end_date: string; is_primary: boolean }
 type SalaryForm = { id?: string; assignment_id: string; salary_type: SalaryType; amount: string; effective_from: string; effective_to: string; source: string; is_approved: boolean }
@@ -32,13 +32,29 @@ type FormState = {
 const today = () => new Date().toISOString().slice(0, 10)
 const blankAssignment = (): AssignmentForm => ({ department_id: '', position_id: '', start_date: today(), end_date: '', is_primary: true })
 const blankSalary = (): SalaryForm => ({ assignment_id: '', salary_type: 'monthly', amount: '', effective_from: today(), effective_to: '', source: 'administrator configuration', is_approved: true })
+const defaultIdentifierTypes = ['TIN', 'Pag-IBIG', 'PhilHealth', 'SSS']
+
+class FormValidationError extends Error {
+  constructor(public fields: Record<string, string>) {
+    super('Review the highlighted fields before saving.')
+  }
+}
+
+const FieldErrorsContext = createContext<Record<string, string>>({})
+
+function withDefaultIdentifiers(identifiers: EmployeeIdentifier[]) {
+  const normalized = identifiers.map((item) => defaultIdentifierTypes.some((type) => type.toLowerCase() === item.identifier_type.trim().toLowerCase()) && !item.identifier_value.trim() ? { ...item, identifier_value: 'N/A' } : item)
+  const existingTypes = new Set(normalized.map((item) => item.identifier_type.trim().toLowerCase()))
+  return [...normalized, ...defaultIdentifierTypes.filter((type) => !existingTypes.has(type.toLowerCase())).map((identifier_type) => ({ identifier_type, identifier_value: 'N/A' }))]
+}
+
 const emptyForm = (): FormState => ({
   employee: { employee_number: '', first_name: '', middle_name: '', last_name: '', gender: '', email: '', civil_status: '', nationality: '', religion: '', birth_date: '', permanent_address: '', present_address: '', contact_number: '', status: 'active', auth_user_id: null, photo_path: null },
   emergency_contacts: [],
   dependents: [],
   educational_backgrounds: [],
   character_references: [],
-  identifiers: [],
+  identifiers: withDefaultIdentifiers([]),
   assignments: [blankAssignment()],
   salary_history: [],
 })
@@ -50,7 +66,7 @@ function formFromProfile(data: EmployeeProfileData): FormState {
     dependents: data.dependents.map((item) => ({ ...item, name: item.name ?? '', relationship: item.relationship ?? '', birth_date: item.birth_date ?? '' })),
     educational_backgrounds: data.educational_backgrounds.map((item) => ({ ...item, level: item.level ?? '', school: item.school ?? '', address: item.address ?? '', school_year: item.school_year ?? '' })),
     character_references: data.character_references.map((item) => ({ ...item, name: item.name ?? '', occupation: item.occupation ?? '', address: item.address ?? '', contact: item.contact ?? '' })),
-    identifiers: data.identifiers.map((item) => ({ ...item, identifier_type: item.identifier_type ?? '', identifier_value: item.identifier_value ?? '' })),
+    identifiers: withDefaultIdentifiers(data.identifiers.map((item) => ({ ...item, identifier_type: item.identifier_type ?? '', identifier_value: item.identifier_value ?? '' }))),
     assignments: data.assignments.map((item) => ({ id: item.id, department_id: item.department_id ?? '', position_id: item.position_id ?? '', department_name: item.department?.name ?? '', position_name: item.position?.name ?? '', start_date: item.start_date, end_date: item.end_date ?? '', is_primary: item.is_primary })),
     salary_history: data.salary_history.map((item) => ({ id: item.id, assignment_id: item.assignment_id ?? '', salary_type: item.salary_type, amount: String(item.amount), effective_from: item.effective_from, effective_to: item.effective_to ?? '', source: item.source ?? '', is_approved: item.is_approved })),
   }
@@ -71,6 +87,7 @@ export function EmployeeProfilePage() {
   const [importWarnings, setImportWarnings] = useState<string[]>([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [busyImport, setBusyImport] = useState(false)
   const [dirty, setDirty] = useState(isNew)
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -91,20 +108,26 @@ export function EmployeeProfilePage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const validationErrors = validateForm(form)
+      if (Object.keys(validationErrors).length > 0) throw new FormValidationError(validationErrors)
       const payload = toPayload(form, isNew)
-      validateForm(payload)
       const employeeId = await saveEmployeeProfile(payload, isNew ? undefined : id)
-      let accountWarning = ''
+      const warnings: string[] = []
       if (form.employee.email && !form.employee.auth_user_id) {
-        try { await provisionEmployeeAccount(employeeId, form.employee.email) } catch { accountWarning = 'Profile saved, but the portal account could not be created. You can retry it from the employee directory.' }
+        try { await provisionEmployeeAccount(employeeId, form.employee.email) } catch (accountError) { warnings.push(`The portal account was not created: ${errorMessage(accountError)} You can retry it from the employee directory.`) }
       }
-      if (pendingPhoto) await uploadEmployeePhoto(employeeId, pendingPhoto)
-      if (pendingDocument) await uploadEmployeeDocument(employeeId, pendingDocument)
-      return { employeeId, accountWarning }
+      if (pendingPhoto) {
+        try { await uploadEmployeePhoto(employeeId, pendingPhoto) } catch (photoError) { warnings.push(`The profile was saved, but the photo was not uploaded: ${errorMessage(photoError)}`) }
+      }
+      if (pendingDocument) {
+        try { await uploadEmployeeDocument(employeeId, pendingDocument) } catch (documentError) { warnings.push(`The profile was saved, but the DOCX was not retained: ${errorMessage(documentError)}`) }
+      }
+      return { employeeId, warnings }
     },
-    onSuccess: ({ employeeId, accountWarning }) => {
-      setMessage(accountWarning || 'Employee profile saved successfully. The original DOCX is retained privately when one was imported.')
+    onSuccess: ({ employeeId, warnings }) => {
+      setMessage(warnings.length ? `Employee profile saved. ${warnings.join(' ')}` : 'Employee profile saved successfully. The original DOCX is retained privately when one was imported.')
       setError('')
+      setFieldErrors({})
       setDirty(false)
       setPendingDocument(null)
       setPendingPhoto(null)
@@ -112,7 +135,14 @@ export function EmployeeProfilePage() {
       void queryClient.invalidateQueries({ queryKey: ['employee-profile', employeeId] })
       if (isNew) navigate(`/admin/employees/${employeeId}`, { replace: true })
     },
-    onError: () => setError('The employee profile could not be saved. Review the highlighted information and try again.'),
+    onError: (saveError) => {
+      if (saveError instanceof FormValidationError) {
+        setFieldErrors(saveError.fields)
+        setError(saveError.message)
+      } else {
+        setError(errorMessage(saveError) || 'The employee profile could not be saved.')
+      }
+    },
   })
 
   const currentProfile = profile.data
@@ -120,7 +150,7 @@ export function EmployeeProfilePage() {
   const activeDepartments = departments.data ?? []
   const activePositions = positions.data ?? []
 
-  function markDirty() { setDirty(true); setError('') }
+  function markDirty() { setDirty(true); setError(''); setFieldErrors({}) }
   function updateEmployee(field: keyof FormState['employee'], value: string) { markDirty(); setForm((current) => ({ ...current, employee: { ...current.employee, [field]: value } })) }
   function updateRow<K extends keyof FormState>(key: K, index: number, value: FormState[K] extends Array<infer Item> ? Partial<Item> : never) { markDirty(); setForm((current) => ({ ...current, [key]: (current[key] as Array<Record<string, unknown>>).map((item, itemIndex) => itemIndex === index ? { ...item, ...value } : item) })) }
   function removeRow<K extends keyof FormState>(key: K, index: number) { markDirty(); setForm((current) => ({ ...current, [key]: (current[key] as unknown[]).filter((_, itemIndex) => itemIndex !== index) })) }
@@ -168,20 +198,20 @@ export function EmployeeProfilePage() {
 
   const primaryAssignment = form.assignments.find((item) => item.is_primary)
 
-  return <div className="space-y-6">
+  return <FieldErrorsContext.Provider value={fieldErrors}><div className="pms-profile-form space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={handleLeave} className="inline-flex min-h-10 items-center gap-2 self-start rounded-xl px-2 text-sm font-semibold text-muted-foreground transition hover:bg-secondary hover:text-primary"><ArrowLeft className="h-4 w-4" />Back to employees</button><div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => void downloadEmployeeTemplate()}><FileDown className="h-4 w-4" />Download template</Button><label className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-input bg-background px-3 text-center text-sm font-semibold transition hover:bg-secondary sm:w-auto"><FileUp className="h-4 w-4" />{busyImport ? 'Reading DOCX...' : 'Import DOCX'}<input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="sr-only" onChange={handleDocument} disabled={busyImport} /></label><Button type="button" className="col-span-2 w-full sm:w-auto" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}><Save className="h-4 w-4" />{saveMutation.isPending ? 'Saving...' : 'Save employee'}</Button></div></div>
     <PageHeading eyebrow="People operations" title={title} description="Complete the official employee profile. Salary and government identifiers are managed by administrators and are not included in the employee DOCX form." />
     {message && <Alert variant="default">{message}</Alert>}
-    {error && <Alert variant="danger">{error}</Alert>}
+    {error && <Alert variant="danger"><div>{error}</div>{Object.entries(fieldErrors).length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">{Object.values(fieldErrors).map((fieldError) => <li key={fieldError}>{fieldError}</li>)}</ul>}</Alert>}
     {importWarnings.length > 0 && <Alert variant="warning"><div className="font-semibold">Review the imported document</div><ul className="mt-2 list-disc space-y-1 pl-5">{importWarnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></Alert>}
     {pendingDocument && <div className="flex items-center gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4 text-sm"><FileText className="h-5 w-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><div className="font-semibold">{pendingDocument.name}</div><div className="text-xs text-muted-foreground">The original file will be retained privately after this profile is saved.</div></div><Badge>Pending save</Badge></div>}
-    <Card><CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-xl font-black text-primary"><UserRound className="h-7 w-7" /></div><div><div className="text-xl font-black">{form.employee.first_name || 'New'} {form.employee.last_name || 'employee'}</div><div className="mt-1 text-sm text-muted-foreground">{form.employee.employee_number || numberPreview.data || 'Number assigned automatically'} · {form.employee.email || 'No portal email yet'}</div></div></div><div className="flex flex-wrap items-center gap-2"><Badge variant={form.employee.status === 'active' ? 'success' : 'muted'}>{form.employee.status}</Badge><Badge variant={form.employee.auth_user_id ? 'success' : 'warning'}>{form.employee.auth_user_id ? 'Portal account ready' : 'Portal account pending'}</Badge></div></CardContent></Card>
+     <Card><CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-xl font-black text-primary"><UserRound className="h-7 w-7" /></div><div><div className="text-xl font-black">{form.employee.first_name || 'New'} {form.employee.last_name || 'employee'}</div><div className="mt-1 text-sm text-muted-foreground">{form.employee.employee_number || numberPreview.data || 'Number assigned automatically'} · {form.employee.email || 'No portal email yet'}</div></div></div><div className="flex flex-wrap items-center gap-2"><Badge variant={form.employee.status === 'active' ? 'success' : 'muted'}>{form.employee.status}</Badge><Badge variant={form.employee.auth_user_id ? 'success' : 'warning'}>{form.employee.auth_user_id ? 'Portal account ready' : 'Portal account pending'}</Badge></div></CardContent></Card>
+     <PhotoPicker existingPath={form.employee.photo_path} file={pendingPhoto} onSelect={(file) => { if (!file.type.startsWith('image/')) { setError('Choose an image file for the employee photo.'); return } if (file.size > 5 * 1024 * 1024) { setError('Employee photos must be 5 MB or smaller.'); return } setPendingPhoto(file); markDirty(); setMessage(`${file.name} will be stored with the employee profile when you save.`) }} />
 
     <SectionCard title="Personal information" description="Official identity, contact, address, and account-readiness details."><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><ReadOnlyField className="col-span-2 sm:col-span-1" label="Employee number" value={form.employee.employee_number || numberPreview.data || 'Assigned automatically'} /><Field label="First name" value={form.employee.first_name} onChange={(value) => updateEmployee('first_name', value)} required /><Field label="Middle name" value={form.employee.middle_name} onChange={(value) => updateEmployee('middle_name', value)} /><Field label="Last name" value={form.employee.last_name} onChange={(value) => updateEmployee('last_name', value)} required /><Field className="col-span-2 sm:col-span-2" label="Email for portal" type="email" value={form.employee.email} onChange={(value) => updateEmployee('email', value)} /><Field label="Contact number" value={form.employee.contact_number} onChange={(value) => updateEmployee('contact_number', value)} /><Field label="Birth date" type="date" value={form.employee.birth_date} onChange={(value) => updateEmployee('birth_date', value)} /><SelectField label="Gender" value={form.employee.gender} onChange={(value) => updateEmployee('gender', value)} options={['Male', 'Female', 'Other']} /><SuggestField label="Civil status" value={form.employee.civil_status} onChange={(value) => updateEmployee('civil_status', value)} options={['Single', 'Married', 'Widowed', 'Separated', 'Divorced', 'Other']} /><SuggestField label="Nationality" value={form.employee.nationality} onChange={(value) => updateEmployee('nationality', value)} options={['Filipino', 'American', 'Australian', 'British', 'Canadian', 'Chinese', 'Japanese', 'Korean', 'Other']} /><SuggestField label="Religion" value={form.employee.religion} onChange={(value) => updateEmployee('religion', value)} options={['Roman Catholic', 'Iglesia ni Cristo', 'Islam', 'Evangelical', 'Protestant', 'Buddhist', 'Hindu', 'Jehovah’s Witnesses', 'Seventh-day Adventist', 'None', 'Other']} /><SelectField label="Employment status" value={form.employee.status} onChange={(value) => updateEmployee('status', value as EmploymentStatus)} options={['active', 'inactive', 'on_leave', 'terminated']} /><TextAreaField className="col-span-2 sm:col-span-2" label="Permanent address" value={form.employee.permanent_address} onChange={(value) => updateEmployee('permanent_address', value)} /><TextAreaField className="col-span-2 sm:col-span-2" label="Present address" value={form.employee.present_address} onChange={(value) => updateEmployee('present_address', value)} /></div></SectionCard>
 
     <SectionCard title="Government identifiers" description="Sensitive identifiers are entered here by administrators and never included in the employee DOCX form." action={<Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => addRow('identifiers')}><Plus className="h-4 w-4" />Add identifier</Button>}><div className="space-y-3">{form.identifiers.length === 0 && <EmptyInline text="No identifiers added." />}{form.identifiers.map((row, index) => <div key={row.id ?? `identifier-${index}`} className="grid grid-cols-2 gap-3 rounded-2xl border p-4"><Field className="col-span-2 sm:col-span-1" label="Identifier type" placeholder="SSS, PhilHealth, Pag-IBIG, TIN, ATM" value={row.identifier_type} onChange={(value) => updateRow('identifiers', index, { identifier_type: value })} /><Field className="col-span-2 sm:col-span-1" label="Identifier value" value={row.identifier_value} onChange={(value) => updateRow('identifiers', index, { identifier_value: value })} /><RemoveButton onClick={() => removeRow('identifiers', index)} /></div>)}</div></SectionCard>
 
-    <PhotoPicker file={pendingPhoto} onSelect={(file) => { setPendingPhoto(file); markDirty(); setMessage(`${file.name} will be stored with the employee profile when you save.`) }} />
     <SectionCard title="Emergency contacts" description="Add every person the organization should contact in an emergency." action={<Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => addRow('emergency_contacts')}><Plus className="h-4 w-4" />Add contact</Button>}><div className="space-y-3">{form.emergency_contacts.length === 0 && <EmptyInline text="No emergency contacts added." />}{form.emergency_contacts.map((row, index) => <div key={row.id ?? `emergency-${index}`} className="grid grid-cols-2 gap-3 rounded-2xl border p-4"><Field label="Name" value={row.name} onChange={(value) => updateRow('emergency_contacts', index, { name: value })} /><Field label="Relationship" value={row.relationship} onChange={(value) => updateRow('emergency_contacts', index, { relationship: value })} /><Field label="Contact" value={row.contact} onChange={(value) => updateRow('emergency_contacts', index, { contact: value })} /><Field className="col-span-2" label="Address" value={row.address} onChange={(value) => updateRow('emergency_contacts', index, { address: value })} /><RemoveButton onClick={() => removeRow('emergency_contacts', index)} /></div>)}</div></SectionCard>
     <SectionCard title="Dependents" description="Record dependents with their relationship and birth date." action={<Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => addRow('dependents')}><Plus className="h-4 w-4" />Add dependent</Button>}><div className="space-y-3">{form.dependents.length === 0 && <EmptyInline text="No dependents added." />}{form.dependents.map((row, index) => <div key={row.id ?? `dependent-${index}`} className="grid grid-cols-2 gap-3 rounded-2xl border p-4"><Field className="col-span-2" label="Full name" value={row.name} onChange={(value) => updateRow('dependents', index, { name: value })} /><Field label="Relationship" value={row.relationship} onChange={(value) => updateRow('dependents', index, { relationship: value })} /><Field label="Birth date" type="date" value={row.birth_date} onChange={(value) => updateRow('dependents', index, { birth_date: value })} /><RemoveButton onClick={() => removeRow('dependents', index)} /></div>)}</div></SectionCard>
     <SectionCard title="Educational background" description="Capture schooling and completion details for the employee record." action={<Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => addRow('educational_backgrounds')}><Plus className="h-4 w-4" />Add education</Button>}><div className="space-y-3">{form.educational_backgrounds.length === 0 && <EmptyInline text="No educational background added." />}{form.educational_backgrounds.map((row, index) => <div key={row.id ?? `education-${index}`} className="grid grid-cols-2 gap-3 rounded-2xl border p-4"><Field label="Level" value={row.level} onChange={(value) => updateRow('educational_backgrounds', index, { level: value })} /><Field className="col-span-2 sm:col-span-1" label="School" value={row.school} onChange={(value) => updateRow('educational_backgrounds', index, { school: value })} /><Field className="col-span-2" label="Address" value={row.address} onChange={(value) => updateRow('educational_backgrounds', index, { address: value })} /><Field label="School year" value={row.school_year} onChange={(value) => updateRow('educational_backgrounds', index, { school_year: value })} /><RemoveButton onClick={() => removeRow('educational_backgrounds', index)} /></div>)}</div></SectionCard>
@@ -191,7 +221,7 @@ export function EmployeeProfilePage() {
     <SectionCard title="Retained documents" description="Completed employee DOCX forms are stored privately for administrator audit access."><div className="space-y-3">{currentProfile?.documents.length ? currentProfile.documents.map((document) => <div key={document.id} className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-3"><FileText className="h-5 w-5 shrink-0 text-primary" /><div className="min-w-0"><div className="truncate font-semibold">{document.original_name}</div><div className="text-xs text-muted-foreground">Stored {formatDate(document.created_at.slice(0, 10))} · {document.parser_version}</div></div></div><Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={async () => { try { const url = await getEmployeeDocumentUrl(document.storage_path); window.open(url, '_blank', 'noopener,noreferrer') } catch { setError('The private document could not be opened.') } }}>Open private copy</Button></div>) : <EmptyInline text="No retained DOCX form yet." />}</div></SectionCard>
 
     <Dialog open={confirmLeave} onClose={() => setConfirmLeave(false)} title="Leave employee profile?" description={dirty || pendingDocument || pendingPhoto ? 'Your unsaved changes and pending uploads will be lost.' : 'Return to the employee directory?'}><div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => setConfirmLeave(false)}>Stay here</Button><Button type="button" variant="danger" onClick={() => navigate('/admin/employees')}>Leave profile</Button></div></Dialog>
-  </div>
+   </div></FieldErrorsContext.Provider>
 }
 
 function toPayload(form: FormState, isNew: boolean): EmployeeProfilePayload {
@@ -202,27 +232,78 @@ function toPayload(form: FormState, isNew: boolean): EmployeeProfilePayload {
     dependents: form.dependents,
     educational_backgrounds: form.educational_backgrounds,
     character_references: form.character_references,
-    identifiers: form.identifiers,
+    identifiers: form.identifiers.filter((item) => item.identifier_type.trim() && item.identifier_value.trim()).map((item) => ({ identifier_type: item.identifier_type.trim(), identifier_value: item.identifier_value.trim() })),
     assignments: form.assignments.filter((item) => item.department_id && item.position_id).map((item) => ({ id: item.id, department_id: item.department_id, position_id: item.position_id, start_date: item.start_date || today(), end_date: item.end_date || null, is_primary: item.is_primary })),
     salary_history: form.salary_history.filter((item) => item.amount && item.effective_from).map((item) => ({ id: item.id, assignment_id: item.assignment_id || null, salary_type: item.salary_type, amount: Number(item.amount), effective_from: item.effective_from, effective_to: item.effective_to || null, source: item.source || null, is_approved: item.is_approved })),
   }
 }
 
-function validateForm(payload: EmployeeProfilePayload) {
-  if (!payload.employee.first_name?.trim() || !payload.employee.last_name?.trim()) throw new Error('First name and last name are required.')
-  if (payload.assignments.some((assignment) => !assignment.start_date)) throw new Error('Every position assignment needs a start date.')
-  if (payload.salary_history.some((salary) => !salary.amount || salary.amount <= 0 || !salary.effective_from)) throw new Error('Salary amounts must be positive and have an effective date.')
+function validateForm(form: FormState) {
+  const errors: Record<string, string> = {}
+  if (!form.employee.first_name.trim()) errors.first_name = 'First name is required.'
+  if (!form.employee.last_name.trim()) errors.last_name = 'Last name is required.'
+  if (form.employee.email.trim() && !/^\S+@\S+\.\S+$/.test(form.employee.email.trim())) errors.email = 'Enter a valid email address or leave this field blank.'
+  if (form.assignments.some((assignment) => Boolean(assignment.department_id || assignment.position_id || assignment.department_name || assignment.position_name) && (!assignment.department_id || !assignment.position_id))) errors.assignments = 'Complete both the department and position for each assignment.'
+  if (form.assignments.some((assignment) => (assignment.department_id || assignment.position_id) && !assignment.start_date)) errors.assignments = 'Every position assignment needs a start date.'
+  if (form.salary_history.some((salary) => Boolean(salary.amount || salary.assignment_id || salary.effective_to) && (!salary.amount || Number(salary.amount) <= 0 || !salary.effective_from))) errors.salary_history = 'Salary amounts must be positive and have an effective date.'
+  if (form.identifiers.some((identifier) => Boolean(identifier.identifier_type.trim() || identifier.identifier_value.trim()) && (!identifier.identifier_type.trim() || !identifier.identifier_value.trim()))) errors.identifiers = 'Complete both the identifier type and value, or remove the unused row.'
+  return errors
 }
 
 function normalizeName(value: string) { return value.trim().toLowerCase().replace(/\s+/g, ' ') }
 function fileLabel(parsed: ParsedEmployeeDocument) { return parsed.employee.first_name || parsed.employee.last_name ? `${parsed.employee.first_name} ${parsed.employee.last_name}`.trim() : 'employee information' }
+function errorMessage(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.' }
 
 function SectionCard({ title, description, action, children }: { title: string; description: string; action?: React.ReactNode; children: React.ReactNode }) { return <Card><CardHeader><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><CardTitle className="flex items-center gap-2"><BriefcaseBusiness className="h-5 w-5 text-primary" />{title}</CardTitle><CardDescription>{description}</CardDescription></div>{action}</div></CardHeader><CardContent>{children}</CardContent></Card> }
-function PhotoPicker({ file, onSelect }: { file: File | null; onSelect: (file: File) => void }) { return <Card><CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">Employee photo</div><div className="text-sm text-muted-foreground">Optional private profile image. It will be uploaded when the profile is saved.</div>{file && <div className="mt-1 text-xs font-semibold text-primary">Pending: {file.name}</div>}</div><label className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border bg-background px-4 text-sm font-semibold transition hover:bg-secondary sm:w-auto"><Upload className="h-4 w-4" />Choose photo<input type="file" accept="image/*" className="sr-only" onChange={(event) => { const selected = event.target.files?.[0]; event.target.value = ''; if (selected) onSelect(selected) }} /></label></CardContent></Card> }
-function Field({ label, value, onChange, type = 'text', placeholder, required = false, className = '' }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string; required?: boolean; className?: string }) { return <div className={className}><Label>{label}{required && <span className="ml-1 text-red-600">*</span>}</Label><Input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} /></div> }
+function PhotoPicker({ existingPath, file, onSelect }: { existingPath: string | null; file: File | null; onSelect: (file: File) => void }) {
+  const [savedUrl, setSavedUrl] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    if (!existingPath) {
+      setSavedUrl(null)
+    } else if (existingPath.startsWith('http')) {
+      setSavedUrl(existingPath)
+    } else {
+      void getEmployeePhotoUrl(existingPath).then((url) => { if (active) setSavedUrl(url) }).catch(() => { if (active) setSavedUrl(null) })
+    }
+    return () => { active = false }
+  }, [existingPath])
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  const photoUrl = previewUrl ?? savedUrl
+  return <Card><CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-primary/10 text-primary">{photoUrl ? <img src={photoUrl} alt="Employee" className="h-full w-full object-cover" /> : <UserRound className="h-9 w-9" />}</div><div><div className="font-semibold">Employee photo</div><div className="mt-1 max-w-md text-sm text-muted-foreground">Optional private profile image. Choose a clear image up to 5 MB; the preview updates immediately.</div>{file ? <div className="mt-1 text-xs font-semibold text-primary">Pending: {file.name}</div> : savedUrl && <div className="mt-1 text-xs font-semibold text-emerald-600">Current photo</div>}</div></div><label className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border bg-background px-4 text-sm font-semibold transition hover:bg-secondary sm:w-auto"><Upload className="h-4 w-4" />{file || savedUrl ? 'Choose another photo' : 'Choose photo'}<input type="file" accept="image/*" className="sr-only" onChange={(event) => { const selected = event.target.files?.[0]; event.target.value = ''; if (selected) onSelect(selected) }} /></label></CardContent></Card>
+}
+function fieldErrorFor(label: string, errors: Record<string, string>) {
+  if (label === 'First name') return errors.first_name
+  if (label === 'Last name') return errors.last_name
+  if (label === 'Email for portal') return errors.email
+  if (['Department', 'Position', 'Start date', 'End date'].includes(label)) return errors.assignments
+  if (['Salary type', 'Amount', 'Effective from', 'Effective to'].includes(label)) return errors.salary_history
+  if (['Identifier type', 'Identifier value'].includes(label)) return errors.identifiers
+  return undefined
+}
+function Field({ label, value, onChange, type = 'text', placeholder, required = false, className = '' }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string; required?: boolean; className?: string }) {
+  const errors = useContext(FieldErrorsContext)
+  const error = fieldErrorFor(label, errors)
+  return <div className={className}><Label>{label}{required && <span className="ml-1 text-red-600">*</span>}</Label><Input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} aria-invalid={Boolean(error)} className={error ? 'border-red-500 focus:border-red-500' : undefined} />{error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}</div>
+}
 function TextAreaField({ label, value, onChange, className = '' }: { label: string; value: string; onChange: (value: string) => void; className?: string }) { return <div className={className}><Label>{label}</Label><textarea className="min-h-24 w-full resize-y rounded-xl border bg-background px-3 py-2 text-sm outline-none ring-offset-background transition focus:border-primary focus:ring-2 focus:ring-primary/15" value={value} onChange={(event) => onChange(event.target.value)} /></div> }
 function ReadOnlyField({ label, value, className = '' }: { label: string; value: string; className?: string }) { return <div className={className}><Label>{label}</Label><div className="flex min-h-10 items-center rounded-xl border bg-secondary/50 px-3 text-sm font-semibold text-muted-foreground">{value}</div></div> }
-function SelectField({ label, value, onChange, options, optionLabels = {}, className = '' }: { label: string; value: string; onChange: (value: string) => void; options: string[]; optionLabels?: Record<string, string>; className?: string }) { return <div className={className}><Label>{label}</Label><div className="relative"><select className="h-10 w-full appearance-none rounded-xl border bg-background px-3 pr-9 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15" value={value} onChange={(event) => onChange(event.target.value)}><option value="">Select {label.toLowerCase()}</option>{options.map((option) => <option key={option} value={option}>{optionLabels[option] ?? option}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-muted-foreground" /></div></div> }
+function SelectField({ label, value, onChange, options, optionLabels = {}, className = '' }: { label: string; value: string; onChange: (value: string) => void; options: string[]; optionLabels?: Record<string, string>; className?: string }) {
+  const error = fieldErrorFor(label, useContext(FieldErrorsContext))
+  return <div className={className}><Label>{label}</Label><div className="relative"><select aria-invalid={Boolean(error)} className={`h-10 w-full appearance-none rounded-lg border bg-background px-3 pr-9 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 ${error ? 'border-red-500' : ''}`} value={value} onChange={(event) => onChange(event.target.value)}><option value="">Select {label.toLowerCase()}</option>{options.map((option) => <option key={option} value={option}>{optionLabels[option] ?? titleCase(option)}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-muted-foreground" /></div>{error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}</div>
+}
 function SuggestField({ label, value, onChange, options, className = '' }: { label: string; value: string; onChange: (value: string) => void; options: string[]; className?: string }) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, FileText, MailWarning, MoreHorizontal, Plus, Search, UserPlus, UserRound, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeading } from '@/components/layout/page-heading'
@@ -20,31 +21,36 @@ export function EmployeesPage() {
   const [search, setSearch] = useState('')
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [messageVariant, setMessageVariant] = useState<'default' | 'danger'>('default')
   const employees = useQuery({ queryKey: ['employees', search], queryFn: () => listEmployees(search) })
   const requests = useQuery({ queryKey: ['profile-change-requests'], queryFn: () => listProfileChangeRequests('pending') })
+  function setFeedback(nextMessage: string, variant: 'default' | 'danger' = 'default') {
+    setMessage(nextMessage)
+    setMessageVariant(variant)
+  }
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Employee['status'] }) => updateEmployeeStatus(id, status),
     onSuccess: () => { setOpenMenu(null); void queryClient.invalidateQueries({ queryKey: ['employees'] }) },
-    onError: (error) => setMessage((error as Error).message),
+    onError: (error) => setFeedback((error as Error).message, 'danger'),
   })
   const provisionMutation = useMutation({
     mutationFn: ({ id, email }: { id: string; email: string }) => provisionEmployeeAccount(id, email),
-    onSuccess: () => { setOpenMenu(null); setMessage('Portal account created. The temporary password is PMS@2026 and must be changed on first login.'); void queryClient.invalidateQueries({ queryKey: ['employees'] }) },
-    onError: (error) => setMessage((error as Error).message),
+    onSuccess: () => { setOpenMenu(null); setFeedback('Portal account created. The temporary password is PMS@2026 and must be changed on first login.'); void queryClient.invalidateQueries({ queryKey: ['employees'] }) },
+    onError: (error) => setFeedback((error as Error).message, 'danger'),
   })
   const requestMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'approved' | 'rejected' }) => reviewProfileChangeRequest(id, status),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['profile-change-requests'] }),
-    onError: (error) => setMessage((error as Error).message),
+    onSuccess: () => { setFeedback('Profile change request updated.'); void queryClient.invalidateQueries({ queryKey: ['profile-change-requests'] }) },
+    onError: (error) => setFeedback((error as Error).message, 'danger'),
   })
 
   return <div>
     <PageHeading eyebrow="People operations" title="Employees" description="Build complete employee profiles, retain submitted forms, and manage portal access without losing history." action={{ label: 'Add employee', to: '/admin/employees/new' }} />
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="relative w-full sm:max-w-md"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, employee number, or email" className="pl-10" /></div>
-      <Link to="/admin/employees/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"><Plus className="h-4 w-4" />New full profile</Link>
+      <Link to="/admin/employees/new" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"><Plus className="h-4 w-4" />Add new profile</Link>
     </div>
-    {message && <Alert variant="default" className="mb-6">{message}</Alert>}
+    {message && <Alert variant={messageVariant} className="mb-6">{message}</Alert>}
     <Card>
        <CardHeader><CardTitle>Employee directory</CardTitle><CardDescription>{employees.data?.length ?? 0} records available. Open a profile to manage every employee section.</CardDescription></CardHeader>
       <CardContent className="p-0 sm:p-2">
@@ -68,7 +74,41 @@ function EmployeeCard({ employee, openMenu, onMenu, onProvision, onToggle, busy 
 }
 
 function EmployeeMenu({ employee, open, onToggle, onProvision, onStatus, busy }: { employee: Employee; open: boolean; onToggle: () => void; onProvision: () => void; onStatus: () => void; busy: boolean }) {
-  return <div className="relative inline-block text-left"><Button variant="ghost" size="icon" onClick={onToggle} aria-label={`Actions for ${employee.first_name} ${employee.last_name}`}><MoreHorizontal className="h-4 w-4" /></Button>{open && <div className="absolute right-0 top-10 z-30 w-52 rounded-xl border bg-card p-1 text-left shadow-xl"><Link to={`/admin/employees/${employee.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-secondary"><UserRound className="h-4 w-4" />Open full profile</Link>{employee.email && !employee.auth_user_id && <button disabled={busy} onClick={onProvision} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"><UserPlus className="h-4 w-4" />Create portal account</button>}<button disabled={busy} onClick={onStatus} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"><FileText className="h-4 w-4" />{employee.status === 'active' ? 'Deactivate employee' : 'Activate employee'}</button></div>}</div>
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setPosition(null)
+      return
+    }
+    const updatePosition = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      const menuWidth = 224
+      const menuHeight = employee.email && !employee.auth_user_id ? 168 : 120
+      const top = rect.bottom + menuHeight + 8 > window.innerHeight ? Math.max(8, rect.top - menuHeight - 8) : rect.bottom + 8
+      const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8)
+      setPosition({ top, left })
+    }
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) onToggle()
+    }
+    updatePosition()
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [employee.auth_user_id, employee.email, onToggle, open])
+
+  return <div className="relative inline-block text-left"><Button ref={triggerRef} variant="ghost" size="icon" onClick={onToggle} aria-expanded={open} aria-haspopup="menu" aria-label={`Actions for ${employee.first_name} ${employee.last_name}`}><MoreHorizontal className="h-4 w-4" /></Button>{open && position && createPortal(<div ref={menuRef} className="fixed z-[70] w-56 rounded-lg border bg-card p-1 text-left shadow-2xl" style={position} role="menu"><Link to={`/admin/employees/${employee.id}`} onClick={onToggle} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-secondary" role="menuitem"><UserRound className="h-4 w-4" />Open full profile</Link>{!employee.auth_user_id && <button type="button" disabled={busy || !employee.email} title={!employee.email ? 'Add an email address to create the portal account.' : undefined} onClick={() => { onToggle(); onProvision() }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50" role="menuitem"><UserPlus className="h-4 w-4" />{employee.email ? 'Create portal account' : 'Add email to create account'}</button>}<button type="button" disabled={busy} onClick={() => { onToggle(); onStatus() }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary disabled:opacity-50" role="menuitem"><FileText className="h-4 w-4" />{employee.status === 'active' ? 'Deactivate employee' : 'Activate employee'}</button></div>, document.body)}</div>
 }
 
 function Avatar({ employee }: { employee: Employee }) {

@@ -26,11 +26,29 @@ import type {
   SalaryHistory,
 } from '@/types/database'
 
+function userFacingMessage(message: string, fallback: string) {
+  const normalized = message.trim()
+  if (!normalized || /supabase|postgrest|postgres|edge function|jwt|row-level security|failed to fetch/i.test(normalized)) return fallback
+  return normalized
+}
+
 function throwIfError(error: { message?: string } | null) {
   if (!error) return
-  const message = error.message || ''
-  if (/supabase|postgrest|postgres|edge function|jwt|row-level security|failed to fetch/i.test(message)) throw new Error('The PMS service could not complete that request.')
-  throw new Error(message || 'The PMS request could not be completed.')
+  throw new Error(userFacingMessage(error.message || '', 'The PMS service could not complete that request.'))
+}
+
+async function functionErrorMessage(error: unknown, fallback: string) {
+  const functionError = error as { message?: string; context?: unknown }
+  if (functionError.context instanceof Response) {
+    try {
+      const body = await functionError.context.clone().json() as { error?: unknown; message?: unknown }
+      const serverMessage = typeof body.error === 'string' ? body.error : typeof body.message === 'string' ? body.message : ''
+      if (serverMessage) return userFacingMessage(serverMessage, fallback)
+    } catch {
+      // The response may not contain JSON; use the function error below.
+    }
+  }
+  return userFacingMessage(functionError.message || '', fallback)
 }
 
 export async function getProfile(userId: string) {
@@ -186,7 +204,8 @@ export async function updateEmployeeStatus(id: string, status: Employee['status'
 
 export async function provisionEmployeeAccount(employeeId: string, email: string) {
   const { data, error } = await supabase.functions.invoke('provision-employee', { body: { employee_id: employeeId, email } })
-  if (error) throw new Error('The employee portal account could not be created.')
+  if (error) throw new Error(await functionErrorMessage(error, 'The employee portal account could not be created.'))
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') throw new Error(userFacingMessage(data.error, 'The employee portal account could not be created.'))
   return data
 }
 
