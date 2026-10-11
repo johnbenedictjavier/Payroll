@@ -2,7 +2,7 @@
 
 ## Apply migrations
 
-Apply the migrations in order to the selected Supabase project using the Supabase CLI or SQL editor. `202610110001_initial_schema.sql` creates the canonical schema, RLS policies, private Storage buckets, audit triggers, payroll functions, and payslip publication workflow. `202610110002_employee_management.sql` adds full employee-profile saving, automatic employee numbers, private DOCX retention, and first-login password controls. `202610110003_employee_number_rules.sql` makes employee numbers immutable after creation.
+Apply the migrations in order to the selected Supabase project using the Supabase CLI or SQL editor. `202610110001_initial_schema.sql` creates the canonical schema, RLS policies, private Storage buckets, audit triggers, payroll functions, and payslip publication workflow. `202610110002_employee_management.sql` adds full employee-profile saving, automatic employee numbers, private DOCX retention, and first-login password controls. `202610110003_employee_number_rules.sql` makes employee numbers immutable after creation. `202610110004_repair_updated_at_columns.sql` repairs pre-existing PMS tables so profile updates can run their timestamp triggers safely.
 
 The shared Supabase project has unrelated pre-existing student-system migration history. Those migrations are intentionally not included in this Payroll application's `supabase/migrations/` directory and are not referenced by Payroll. Do not remove the existing remote student objects unless the student system is being retired.
 
