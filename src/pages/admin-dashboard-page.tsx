@@ -1,4 +1,5 @@
-import { Activity, ArrowRight, CalendarClock, CircleDollarSign, Clock3, Landmark, UserCheck, UsersRound, WalletCards } from 'lucide-react'
+import { useState } from 'react'
+import { Activity, ArrowRight, CalendarClock, CircleDollarSign, Clock3, Landmark, Search, UserCheck, UsersRound, WalletCards } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeading } from '@/components/layout/page-heading'
@@ -7,6 +8,7 @@ import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getDashboardStats, listPayrollPeriods } from '@/services/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -16,6 +18,8 @@ const publicAsset = (name: string) => `${import.meta.env.BASE_URL}${name}`
 export function AdminDashboardPage() {
   const stats = useQuery({ queryKey: ['admin-dashboard'], queryFn: getDashboardStats })
   const periods = useQuery({ queryKey: ['payroll-periods'], queryFn: listPayrollPeriods })
+  const [periodSearch, setPeriodSearch] = useState('')
+  const visiblePeriods = periods.data?.filter((period) => `${period.name} ${period.status} ${period.frequency} ${period.start_date} ${period.end_date}`.toLowerCase().includes(periodSearch.trim().toLowerCase())) ?? []
 
   return (
     <div>
@@ -35,20 +39,20 @@ export function AdminDashboardPage() {
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
         <Card>
           <CardHeader className="flex-row items-start justify-between">
-            <div><CardTitle>Payroll readiness</CardTitle><CardDescription>Current periods and their approval state.</CardDescription></div>
+             <div className="min-w-0"><CardTitle>Payroll readiness</CardTitle><CardDescription>Current periods and their approval state.</CardDescription><div className="relative mt-3 max-w-md"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={periodSearch} onChange={(event) => setPeriodSearch(event.target.value)} placeholder="Search payroll periods" className="pl-9" /></div></div>
             <CalendarClock className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            {periods.isLoading ? <div className="space-y-3"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> : periods.data?.length ? (
-              <div className="space-y-3">
-                {periods.data.slice(0, 4).map((period) => (
+             {periods.isLoading ? <div className="space-y-3"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> : visiblePeriods.length ? (
+               <div className="space-y-3">
+                 {visiblePeriods.slice(0, 4).map((period) => (
                   <div key={period.id} className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div><div className="font-semibold">{period.name}</div><div className="mt-1 text-xs text-muted-foreground">{formatDate(period.start_date)} to {formatDate(period.end_date)} · Pay date {formatDate(period.pay_date)}</div></div>
                     <div className="flex items-center gap-3"><Badge variant={period.status === 'finalized' || period.status === 'paid' ? 'success' : period.status === 'cancelled' ? 'danger' : 'warning'}>{period.status}</Badge><Link to={`/admin/payroll?period=${period.id}`} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-primary"><ArrowRight className="h-4 w-4" /></Link></div>
                   </div>
                 ))}
               </div>
-            ) : (
+             ) : periods.data?.length ? <div className="rounded-xl border border-dashed p-8 text-center"><p className="font-semibold">No matching payroll periods</p><p className="mt-1 text-sm text-muted-foreground">Adjust your search to see other periods.</p></div> : (
               <div className="rounded-xl border border-dashed p-8 text-center"><Clock3 className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-3 font-semibold">No payroll periods yet</p><p className="mt-1 text-sm text-muted-foreground">Create the first configurable period to start collecting attendance and deductions.</p><Link to="/admin/payroll" className="mt-4 inline-flex"><Button size="sm">Create payroll period</Button></Link></div>
             )}
           </CardContent>

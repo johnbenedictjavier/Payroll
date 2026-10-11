@@ -1,32 +1,383 @@
-import { useState } from 'react'
-import { Check, CircleDollarSign, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Check, CircleDollarSign, Plus, Search } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeading } from '@/components/layout/page-heading'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Dialog } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { approveSalaryHistory, createSalaryHistory, listEmployees, listSalaryHistory } from '@/services/api'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  approveSalaryHistory,
+  createSalaryHistory,
+  listEmployees,
+  listSalaryHistory,
+} from '@/services/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-type SalaryForm = { employee_id: string; salary_type: 'monthly' | 'daily' | 'hourly'; amount: string; effective_from: string; effective_to: string; source: string }
-const blank: SalaryForm = { employee_id: '', salary_type: 'monthly', amount: '', effective_from: new Date().toISOString().slice(0, 10), effective_to: '', source: '' }
+type SalaryForm = {
+  employee_id: string
+  salary_type: 'monthly' | 'daily' | 'hourly'
+  amount: string
+  effective_from: string
+  effective_to: string
+  source: string
+}
+const blank: SalaryForm = {
+  employee_id: '',
+  salary_type: 'monthly',
+  amount: '',
+  effective_from: new Date().toISOString().slice(0, 10),
+  effective_to: '',
+  source: '',
+}
 
 export function SalariesPage() {
   const queryClient = useQueryClient()
-  const history = useQuery({ queryKey: ['salary-history'], queryFn: listSalaryHistory })
-  const employees = useQuery({ queryKey: ['employees'], queryFn: () => listEmployees() })
+  const history = useQuery({
+    queryKey: ['salary-history'],
+    queryFn: listSalaryHistory,
+  })
+  const employees = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => listEmployees(),
+  })
   const [form, setForm] = useState(blank)
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
-  const createMutation = useMutation({ mutationFn: () => createSalaryHistory({ ...form, amount: Number(form.amount), effective_to: form.effective_to || undefined, is_approved: true }), onSuccess: () => { setOpen(false); setForm(blank); void queryClient.invalidateQueries({ queryKey: ['salary-history'] }) }, onError: (errorValue) => setError((errorValue as Error).message) })
-  const approveMutation = useMutation({ mutationFn: ({ id, approved }: { id: string; approved: boolean }) => approveSalaryHistory(id, approved), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['salary-history'] }), onError: (errorValue) => setError((errorValue as Error).message) })
-  function submit(event: React.FormEvent) { event.preventDefault(); setError(''); if (!form.employee_id || Number(form.amount) <= 0 || !form.effective_from) { setError('Employee, positive amount, and effective date are required.'); return } createMutation.mutate() }
-  return <div><PageHeading eyebrow="Compensation" title="Salary configuration" description="Create effective-dated salary history. Imported legacy values remain unapproved until reviewed." /><div className="mb-6"><Button onClick={() => { setError(''); setForm(blank); setOpen(true) }}><Plus className="h-4 w-4" />Add salary configuration</Button></div>{error && <Alert variant="danger" className="mb-6">{error}</Alert>}<Card><CardHeader><CardTitle className="flex items-center gap-2"><CircleDollarSign className="h-5 w-5 text-primary" />Salary history</CardTitle><CardDescription>{history.data?.length ?? 0} effective-dated records.</CardDescription></CardHeader><CardContent>{history.isLoading ? <div className="space-y-3"><Skeleton className="h-12" /><Skeleton className="h-12" /></div> : history.data?.length ? <Table><TableHeader><TableRow><TableHead>Employee</TableHead><TableHead>Type</TableHead><TableHead>Amount</TableHead><TableHead>Effective</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader><TableBody>{history.data.map((row: { id: string; employee?: { employee_number: string; first_name: string; last_name: string }; salary_type: string; amount: number; effective_from: string; effective_to: string | null; is_approved: boolean }) => <TableRow key={row.id}><TableCell><div className="font-semibold">{row.employee ? `${row.employee.last_name}, ${row.employee.first_name}` : 'Employee'}</div><div className="text-xs text-muted-foreground">{row.employee?.employee_number}</div></TableCell><TableCell className="capitalize">{row.salary_type}</TableCell><TableCell className="font-semibold">{formatCurrency(row.amount)}</TableCell><TableCell><div>{formatDate(row.effective_from)}</div><div className="text-xs text-muted-foreground">to {row.effective_to ? formatDate(row.effective_to) : 'current'}</div></TableCell><TableCell><Badge variant={row.is_approved ? 'success' : 'warning'}>{row.is_approved ? 'Approved' : 'Review required'}</Badge></TableCell><TableCell className="text-right">{!row.is_approved && <Button size="sm" variant="outline" onClick={() => approveMutation.mutate({ id: row.id, approved: true })}><Check className="h-4 w-4" />Approve</Button>}</TableCell></TableRow>)}</TableBody></Table> : <EmptyState title="No salary history" description="Create an effective-dated salary configuration before payroll preview." />}</CardContent></Card><Dialog open={open} onClose={() => setOpen(false)} title="Add salary configuration" description="The record will be available to payroll only when approved."><form onSubmit={submit} className="space-y-5"><div><Label>Employee</Label><select className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={form.employee_id} onChange={(event) => setForm((current) => ({ ...current, employee_id: event.target.value }))}><option value="">Select employee</option>{employees.data?.map((employee) => <option key={employee.id} value={employee.id}>{employee.employee_number} - {employee.last_name}, {employee.first_name}</option>)}</select></div><div className="grid gap-4 sm:grid-cols-2"><div><Label>Salary type</Label><select className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={form.salary_type} onChange={(event) => setForm((current) => ({ ...current, salary_type: event.target.value as SalaryForm['salary_type'] }))}><option value="monthly">Monthly</option><option value="daily">Daily</option><option value="hourly">Hourly</option></select></div><div><Label>Amount</Label><Input type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} required /></div></div><div className="grid gap-4 sm:grid-cols-2"><div><Label>Effective from</Label><Input type="date" value={form.effective_from} onChange={(event) => setForm((current) => ({ ...current, effective_from: event.target.value }))} required /></div><div><Label>Effective to</Label><Input type="date" value={form.effective_to} onChange={(event) => setForm((current) => ({ ...current, effective_to: event.target.value }))} /></div></div><div><Label>Source or approval note</Label><Input value={form.source} onChange={(event) => setForm((current) => ({ ...current, source: event.target.value }))} /></div><div className="flex justify-end gap-2 border-t pt-5"><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={createMutation.isPending}>Save salary</Button></div></form></Dialog></div>
+  const [search, setSearch] = useState('')
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'approved' | 'pending'>('all')
+  const visibleHistory = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase()
+    return (
+      history.data?.filter((row) => {
+        const employee = row.employee
+        const matchesApproval = approvalFilter === 'all' || (approvalFilter === 'approved' ? row.is_approved : !row.is_approved)
+        return matchesApproval && `${employee?.first_name ?? ''} ${employee?.last_name ?? ''} ${employee?.employee_number ?? ''} ${row.salary_type} ${row.amount} ${row.effective_from} ${row.effective_to ?? ''} ${row.is_approved ? 'approved' : 'review required'}`
+          .toLowerCase()
+          .includes(normalizedSearch)
+      }) ?? []
+    )
+  }, [approvalFilter, history.data, search])
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createSalaryHistory({
+        ...form,
+        amount: Number(form.amount),
+        effective_to: form.effective_to || undefined,
+        is_approved: true,
+      }),
+    onSuccess: () => {
+      setOpen(false)
+      setForm(blank)
+      void queryClient.invalidateQueries({ queryKey: ['salary-history'] })
+    },
+    onError: (errorValue) => setError((errorValue as Error).message),
+  })
+  const approveMutation = useMutation({
+    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
+      approveSalaryHistory(id, approved),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ['salary-history'] }),
+    onError: (errorValue) => setError((errorValue as Error).message),
+  })
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    setError('')
+    if (!form.employee_id || Number(form.amount) <= 0 || !form.effective_from) {
+      setError('Employee, positive amount, and effective date are required.')
+      return
+    }
+    createMutation.mutate()
+  }
+  return (
+    <div>
+      <PageHeading
+        eyebrow="Compensation"
+        title="Salary configuration"
+        description="Create effective-dated salary history. Imported legacy values remain unapproved until reviewed."
+      />
+      <div className="mb-6">
+        <Button
+          onClick={() => {
+            setError('')
+            setForm(blank)
+            setOpen(true)
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Add salary configuration
+        </Button>
+      </div>
+      {error && (
+        <Alert variant="danger" className="mb-6">
+          {error}
+        </Alert>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CircleDollarSign className="h-5 w-5 text-primary" />
+            Salary history
+          </CardTitle>
+          <CardDescription>
+            {history.data?.length ?? 0} effective-dated records.
+          </CardDescription>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search employee, number, or salary type"
+                className="pl-9"
+              />
+            </div>
+            <select className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={approvalFilter} onChange={(event) => setApprovalFilter(event.target.value as typeof approvalFilter)}>
+              <option value="all">All salary statuses</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Review required</option>
+            </select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {history.isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-12" />
+              <Skeleton className="h-12" />
+            </div>
+          ) : visibleHistory.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Effective</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleHistory.map(
+                  (row: {
+                    id: string
+                    employee?: {
+                      employee_number: string
+                      first_name: string
+                      last_name: string
+                    }
+                    salary_type: string
+                    amount: number
+                    effective_from: string
+                    effective_to: string | null
+                    is_approved: boolean
+                  }) => (
+                    <TableRow key={row.id}>
+                      <TableCell>
+                        <div className="font-semibold">
+                          {row.employee
+                            ? `${row.employee.last_name}, ${row.employee.first_name}`
+                            : 'Employee'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.employee?.employee_number}
+                        </div>
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {row.salary_type}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(row.amount)}
+                      </TableCell>
+                      <TableCell>
+                        <div>{formatDate(row.effective_from)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          to{' '}
+                          {row.effective_to
+                            ? formatDate(row.effective_to)
+                            : 'current'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={row.is_approved ? 'success' : 'warning'}
+                        >
+                          {row.is_approved ? 'Approved' : 'Review required'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {!row.is_approved && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              approveMutation.mutate({
+                                id: row.id,
+                                approved: true,
+                              })
+                            }
+                          >
+                            <Check className="h-4 w-4" />
+                            Approve
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )}
+              </TableBody>
+            </Table>
+          ) : history.data?.length ? (
+            <EmptyState
+              title="No matching salary history"
+              description="Adjust your search to see other salary records."
+            />
+          ) : (
+            <EmptyState
+              title="No salary history"
+              description="Create an effective-dated salary configuration before payroll preview."
+            />
+          )}
+        </CardContent>
+      </Card>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Add salary configuration"
+        description="The record will be available to payroll only when approved."
+      >
+        <form onSubmit={submit} className="space-y-5">
+          <div>
+            <Label>Employee</Label>
+            <select
+              className="h-10 w-full rounded-lg border bg-background px-3 text-sm"
+              value={form.employee_id}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  employee_id: event.target.value,
+                }))
+              }
+            >
+              <option value="">Select employee</option>
+              {employees.data?.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.employee_number} - {employee.last_name},{' '}
+                  {employee.first_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Salary type</Label>
+              <select
+                className="h-10 w-full rounded-lg border bg-background px-3 text-sm"
+                value={form.salary_type}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    salary_type: event.target
+                      .value as SalaryForm['salary_type'],
+                  }))
+                }
+              >
+                <option value="monthly">Monthly</option>
+                <option value="daily">Daily</option>
+                <option value="hourly">Hourly</option>
+              </select>
+            </div>
+            <div>
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={form.amount}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    amount: event.target.value,
+                  }))
+                }
+                required
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Effective from</Label>
+              <Input
+                type="date"
+                value={form.effective_from}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    effective_from: event.target.value,
+                  }))
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label>Effective to</Label>
+              <Input
+                type="date"
+                value={form.effective_to}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    effective_to: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Source or approval note</Label>
+            <Input
+              value={form.source}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  source: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending}>
+              Save salary
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+    </div>
+  )
 }

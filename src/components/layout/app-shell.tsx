@@ -26,6 +26,7 @@ import { initials, cn, titleCase } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { Dialog } from '@/components/ui/dialog'
 import { listNotifications, markNotificationRead } from '@/services/api'
 import type { Notification, Role } from '@/types/database'
 
@@ -63,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lcc-theme') === 'dark')
   const nav = navForRole(role)
   const mobileNav = role === 'admin'
@@ -84,8 +86,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => setMobileOpen(false), [location.pathname])
 
-  async function handleSignOut() {
-    if (!window.confirm('Are you sure you want to sign out of Paynexus PMS?')) return
+  function handleSignOut() {
+    setConfirmSignOut(true)
+  }
+
+  async function confirmSignOutAction() {
+    setConfirmSignOut(false)
     await signOut()
   }
 
@@ -142,9 +148,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{children}</div>
-      </main>
+       </main>
 
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 backdrop-blur lg:hidden">
+       <Dialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} title="Sign out?" description="Your current session will end on this device.">
+         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+           <Button type="button" variant="outline" onClick={() => setConfirmSignOut(false)}>Cancel</Button>
+           <Button type="button" variant="danger" onClick={() => void confirmSignOutAction()}>Sign out</Button>
+         </div>
+       </Dialog>
+
+       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 backdrop-blur lg:hidden">
         {mobileNav.map((item) => <NavItem key={item.to} item={item} mobile />)}
       </nav>
     </div>
