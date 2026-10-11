@@ -26,4 +26,11 @@ Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Sup
 
 ## Deployment
 
-The frontend is configured for Vercel. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as Vercel environment variables and configure Supabase Auth redirect URLs for the deployed domain.
+The frontend is configured for Vercel from the `app/` project root. When importing this repository into Vercel:
+
+1. Set **Root Directory** to `app`.
+2. Use `npm run build` as the build command and `dist` as the output directory, or let `app/vercel.json` provide those values.
+3. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as Vercel environment variables.
+4. Configure Supabase Auth redirect URLs for the deployed domain.
+
+Do not add `SUPABASE_SERVICE_ROLE_KEY` to frontend or Vercel browser environment variables.
