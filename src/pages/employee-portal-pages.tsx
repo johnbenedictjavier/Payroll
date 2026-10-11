@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Download, FileText, LockKeyhole, Send, UserRound } from 'lucide-react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Download, FileText, LockKeyhole, Send } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { PageHeading } from '@/components/layout/page-heading'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
@@ -16,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { validatePasswordChange, type PasswordErrors, type PasswordField } from '@/lib/password'
 
 export function EmployeeAttendancePage() {
   const attendance = useQuery({ queryKey: ['my-attendance'], queryFn: () => listAttendance() })
@@ -50,12 +52,39 @@ export function EmployeeProfilePage() {
 
 export function SettingsPage() {
   const { employee, refreshIdentity } = useAuth()
+  const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
+  const [errors, setErrors] = useState<PasswordErrors>({})
   const [busy, setBusy] = useState(false)
-  async function changePassword(event: React.FormEvent) { event.preventDefault(); setMessage(''); if (password.length < 8 || password !== confirmation) { setMessage('Use at least eight characters and make both password fields match.'); return } setBusy(true); const { error } = await supabase.auth.updateUser({ password }); if (!error) { try { await completePasswordChange(); await refreshIdentity() } catch (completionError) { setBusy(false); setMessage((completionError as Error).message); return } } setBusy(false); setMessage(error ? error.message : 'Password updated successfully.'); if (!error) { setPassword(''); setConfirmation('') } }
-  return <div><PageHeading eyebrow="Account" title="Settings" description="Manage your authenticated account. Official payroll data remains protected by administrator workflows." />{employee?.must_change_password && <Alert className="mb-6" variant="warning">Your temporary password must be changed before you can access the employee portal.</Alert>}<Card className="max-w-xl"><CardHeader><CardTitle>Change password</CardTitle><CardDescription>Use a unique password that is not reused elsewhere.</CardDescription></CardHeader><CardContent><form onSubmit={changePassword} className="space-y-5">{message && <Alert variant={message.includes('successfully') ? 'default' : 'danger'}>{message}</Alert>}<div><Label>New password</Label><Input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required /></div><div><Label>Confirm new password</Label><Input type="password" minLength={8} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required /></div><Button type="submit" disabled={busy}><LockKeyhole className="h-4 w-4" />{busy ? 'Updating...' : 'Update password'}</Button></form></CardContent></Card></div>
+  const [completionPending, setCompletionPending] = useState(false)
+  function clearError(field: PasswordField) { setErrors((current) => ({ ...current, [field]: undefined })); setMessage('') }
+  async function finishFirstLogin() {
+    setBusy(true)
+    try { await completePasswordChange(); await refreshIdentity(); setCompletionPending(false); navigate('/employee', { replace: true, state: { passwordChanged: true } }) } catch (error) { setMessage(error instanceof Error ? error.message : 'Your account setup could not be completed.') } finally { setBusy(false) }
+  }
+  async function changePassword(event: React.FormEvent) {
+    event.preventDefault()
+    setMessage('')
+    if (completionPending) { await finishFirstLogin(); return }
+    const validationErrors = validatePasswordChange(password, confirmation)
+    setErrors(validationErrors)
+    if (Object.keys(validationErrors).length > 0) return
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) { setErrors({ password: error.message }); setMessage(error.message); return }
+      if (employee?.must_change_password) {
+        try { await completePasswordChange() } catch { setCompletionPending(true); throw new Error('Password updated, but account setup still needs confirmation. Submit again to finish setup.') }
+      }
+      await refreshIdentity()
+      setPassword('')
+      setConfirmation('')
+      navigate('/employee', { replace: true, state: { passwordChanged: true } })
+    } catch (completionError) { setMessage(completionError instanceof Error ? completionError.message : 'The password was updated, but the account could not be confirmed.') } finally { setBusy(false) }
+  }
+  return <div><PageHeading eyebrow="Account" title="Settings" description="Manage your authenticated account. Official payroll data remains protected by administrator workflows." />{employee?.must_change_password && <Alert className="mb-6" variant="warning">Your temporary password must be changed before you can access the employee portal.</Alert>}<Card className="max-w-xl"><CardHeader><CardTitle>Change password</CardTitle><CardDescription>Use a unique password that is not reused elsewhere.</CardDescription></CardHeader><CardContent><form noValidate onSubmit={changePassword} className="space-y-5">{message && <Alert variant="danger">{message}</Alert>}<div><Label htmlFor="employee-new-password">New password</Label><Input id="employee-new-password" type="password" minLength={8} value={password} onFocus={() => clearError('password')} onChange={(event) => { clearError('password'); setPassword(event.target.value) }} required aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'employee-new-password-error' : undefined} className={errors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : undefined} />{errors.password && <p id="employee-new-password-error" className="mt-1 text-xs font-medium text-red-600">{errors.password}</p>}</div><div><Label htmlFor="employee-confirm-password">Confirm new password</Label><Input id="employee-confirm-password" type="password" minLength={8} value={confirmation} onFocus={() => clearError('confirmation')} onChange={(event) => { clearError('confirmation'); setConfirmation(event.target.value) }} required aria-invalid={Boolean(errors.confirmation)} aria-describedby={errors.confirmation ? 'employee-confirm-password-error' : undefined} className={errors.confirmation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : undefined} />{errors.confirmation && <p id="employee-confirm-password-error" className="mt-1 text-xs font-medium text-red-600">{errors.confirmation}</p>}</div><Button type="submit" disabled={busy}><LockKeyhole className="h-4 w-4" />{busy ? 'Updating...' : completionPending ? 'Finish account setup' : 'Update password'}</Button></form></CardContent></Card></div>
 }
 
 function ReadOnly({ label, value }: { label: string; value: string | null | undefined }) { return <div><div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</div><div className="mt-1 text-sm font-semibold">{value || 'Not set'}</div></div> }

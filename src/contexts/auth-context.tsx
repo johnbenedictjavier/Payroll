@@ -12,9 +12,10 @@ type AuthContextValue = {
   role: Role | null
   isLoading: boolean
   isConfigured: boolean
-  signIn: (employeeNumber: string, password: string) => Promise<void>
+  signIn: (employeeNumber: string, password: string) => Promise<Role>
   signOut: () => Promise<void>
   refreshIdentity: () => Promise<void>
+  identityError: string | null
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -25,23 +26,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [role, setRole] = useState<Role | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [identityError, setIdentityError] = useState<string | null>(null)
 
-  const loadIdentity = async (nextSession: Session | null) => {
+  const loadIdentity = async (nextSession: Session | null): Promise<Role | null> => {
     setSession(nextSession)
     if (!nextSession?.user) {
       setProfile(null)
       setEmployee(null)
       setRole(null)
-      return
+      setIdentityError(null)
+      setIsLoading(false)
+      return null
     }
-    const [nextProfile, nextRole, nextEmployee] = await Promise.all([
-      getProfile(nextSession.user.id),
-      getRole(nextSession.user.id),
-      getLinkedEmployee(nextSession.user.id),
-    ])
-    setProfile(nextProfile)
-    setRole(nextRole)
-    setEmployee(nextEmployee)
+    setIsLoading(true)
+    try {
+      const [nextProfile, nextRole, nextEmployee] = await Promise.all([
+        getProfile(nextSession.user.id),
+        getRole(nextSession.user.id),
+        getLinkedEmployee(nextSession.user.id),
+      ])
+      if (!nextRole || (nextRole === 'employee' && !nextEmployee)) {
+        throw new Error('Your account is not linked to a valid PMS role. Contact an administrator.')
+      }
+      setProfile(nextProfile)
+      setRole(nextRole)
+      setEmployee(nextEmployee)
+      setIdentityError(null)
+      return nextRole
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load your PMS account.'
+      setProfile(null)
+      setEmployee(null)
+      setRole(null)
+      setIdentityError(message)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -50,13 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
       return
     }
-    void supabase.auth.getSession().then(async ({ data }) => {
-      if (!mounted) return
-      try { await loadIdentity(data.session) } finally { if (mounted) setIsLoading(false) }
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void loadIdentity(nextSession).finally(() => { if (mounted) setIsLoading(false) })
-    })
+      void supabase.auth.getSession().then(async ({ data }) => {
+       if (!mounted) return
+       try { await loadIdentity(data.session) } catch { /* The login screen handles an unavailable identity. */ }
+     }).catch(() => { if (mounted) setIsLoading(false) })
+     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+       void loadIdentity(nextSession).catch(() => undefined)
+     })
     return () => { mounted = false; listener.subscription.unsubscribe() }
   }, [])
 
@@ -73,15 +94,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.functions.invoke('employee-login', { body: { employee_number: employeeNumber.trim(), password } })
       if (error) throw new Error('Invalid credentials.')
       if (!data?.session?.access_token || !data?.session?.refresh_token) throw new Error('Unable to complete sign-in.')
-      const { error: sessionError } = await supabase.auth.setSession(data.session)
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession(data.session)
       if (sessionError) throw new Error('Unable to complete sign-in.')
+      try {
+        const signedInRole = await loadIdentity(sessionData.session ?? data.session)
+        if (!signedInRole) throw new Error('Unable to load your PMS role.')
+        return signedInRole
+      } catch (error) {
+        await supabase.auth.signOut()
+        throw new Error(error instanceof Error ? error.message : 'Unable to load your PMS account.')
+      }
     },
     signOut: async () => {
       const { error } = await supabase.auth.signOut()
       if (error) throw new Error(error.message)
     },
     refreshIdentity: async () => { await loadIdentity(session) },
-  }), [session, profile, employee, role, isLoading])
+    identityError,
+  }), [session, profile, employee, role, isLoading, identityError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -33,6 +33,7 @@ export interface Employee {
   contact_number: string | null
   photo_path: string | null
   legacy_photo_path?: string | null
+  email_duplicate?: boolean
   must_change_password: boolean
   password_changed_at?: string | null
   status: EmploymentStatus

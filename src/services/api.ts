@@ -84,7 +84,14 @@ export async function listEmployees(search = '') {
   }
   const { data, error } = await query
   throwIfError(error)
-  return (data ?? []) as Employee[]
+  const { data: emailRows, error: duplicateError } = await supabase.from('pms_employees').select('id,email').not('email', 'is', null)
+  throwIfError(duplicateError)
+  const emailCounts = new Map<string, number>()
+  for (const row of emailRows ?? []) {
+    const email = typeof row.email === 'string' ? row.email.trim().toLowerCase() : ''
+    if (email) emailCounts.set(email, (emailCounts.get(email) ?? 0) + 1)
+  }
+  return (data ?? []).map((employee) => ({ ...employee, email_duplicate: Boolean(employee.email && (emailCounts.get(employee.email.trim().toLowerCase()) ?? 0) > 1) })) as Employee[]
 }
 
 export async function createEmployee(values: Partial<Employee> & { employee_number: string; first_name: string; last_name: string; department_id?: string; position_id?: string }) {
@@ -123,8 +130,15 @@ export async function getEmployeeProfile(id: string): Promise<EmployeeProfileDat
     supabase.from('pms_employee_documents').select('*').eq('employee_id', id).order('created_at', { ascending: false }),
   ])
   responses.forEach((response) => throwIfError(response.error))
+  const employee = responses[0].data as Employee
+  let emailDuplicate = false
+  if (employee.email) {
+    const { data: duplicateRows, error: duplicateError } = await supabase.from('pms_employees').select('id').ilike('email', employee.email).neq('id', id).limit(1)
+    throwIfError(duplicateError)
+    emailDuplicate = Boolean(duplicateRows?.length)
+  }
   return {
-    employee: responses[0].data as Employee,
+    employee: { ...employee, email_duplicate: emailDuplicate },
     emergency_contacts: (responses[1].data ?? []) as EmergencyContact[],
     dependents: (responses[2].data ?? []) as Dependent[],
     educational_backgrounds: (responses[3].data ?? []) as EducationalBackground[],
@@ -177,6 +191,26 @@ export async function uploadEmployeePhoto(employeeId: string, file: File) {
   return data.photo_path as string
 }
 
+export async function uploadOwnEmployeePhoto(file: File) {
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  throwIfError(userError)
+  if (!userData.user) throw new Error('Your session has expired. Sign in again to update your photo.')
+  const { data: employee, error: employeeError } = await supabase.from('pms_employees').select('id').eq('auth_user_id', userData.user.id).single()
+  throwIfError(employeeError)
+  if (!employee) throw new Error('Your account is not linked to an employee record.')
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const storagePath = `${employee.id}/profile-${crypto.randomUUID()}.${extension}`
+  const { error: uploadError } = await supabase.storage.from('pms-employee-avatars').upload(storagePath, file, { contentType: file.type, upsert: false })
+  throwIfError(uploadError)
+  const { data: previousPath, error: updateError } = await supabase.rpc('pms_update_own_employee_photo', { p_photo_path: storagePath })
+  if (updateError) {
+    await supabase.storage.from('pms-employee-avatars').remove([storagePath])
+    throwIfError(updateError)
+  }
+  if (typeof previousPath === 'string' && previousPath) await supabase.storage.from('pms-employee-avatars').remove([previousPath])
+  return storagePath
+}
+
 export async function getEmployeePhotoUrl(storagePath: string) {
   const { data, error } = await supabase.storage.from('pms-employee-avatars').createSignedUrl(storagePath, 300)
   throwIfError(error)
@@ -204,9 +238,24 @@ export async function updateEmployeeStatus(id: string, status: Employee['status'
 
 export async function provisionEmployeeAccount(employeeId: string, email: string) {
   const { data, error } = await supabase.functions.invoke('provision-employee', { body: { employee_id: employeeId, email } })
-  if (error) throw new Error(await functionErrorMessage(error, 'The employee portal account could not be created.'))
-  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') throw new Error(userFacingMessage(data.error, 'The employee portal account could not be created.'))
+  if (error) {
+    const message = await functionErrorMessage(error, 'The employee portal account could not be created.')
+    if (/duplicate_email|duplicate|already assigned|already registered|already exists|already has/i.test(message)) throw new DuplicateEmployeeEmailError(message)
+    throw new Error(message)
+  }
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+    if ('code' in data && data.code === 'duplicate_email') throw new DuplicateEmployeeEmailError(data.error)
+    throw new Error(userFacingMessage(data.error, 'The employee portal account could not be created.'))
+  }
   return data
+}
+
+export class DuplicateEmployeeEmailError extends Error {
+  readonly code = 'duplicate_email'
+  constructor(message = 'This email is already assigned to another employee. Change the email before creating this portal account.') {
+    super(message)
+    this.name = 'DuplicateEmployeeEmailError'
+  }
 }
 
 export async function getEmployeeAssignments(employeeId: string) {

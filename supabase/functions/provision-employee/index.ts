@@ -24,10 +24,14 @@ Deno.serve(async (request) => {
     const { data: employee, error: employeeError } = await adminClient.from('pms_employees').select('id,first_name,last_name,email,auth_user_id').eq('id', employee_id).single()
     if (employeeError || !employee) return json({ error: 'Employee not found.' }, 404)
     if (employee.auth_user_id) return json({ error: 'This employee already has an Auth account.' }, 409)
-    const { data: duplicate } = await adminClient.from('pms_employees').select('id').eq('email', normalizedEmail).neq('id', employee_id).maybeSingle()
-    if (duplicate) return json({ error: 'This email is already assigned to another employee.' }, 409)
+    const { data: duplicateRows, error: duplicateError } = await adminClient.from('pms_employees').select('id').ilike('email', normalizedEmail).neq('id', employee_id).limit(1)
+    if (duplicateError) return json({ error: 'Unable to verify the employee email.' }, 500)
+    if (duplicateRows?.length) return json({ code: 'duplicate_email', error: 'This email is already assigned to another employee. Change the email before creating this portal account.' }, 409)
     const { data: created, error: createError } = await adminClient.auth.admin.createUser({ email: normalizedEmail, password: DEFAULT_EMPLOYEE_PASSWORD, email_confirm: true, user_metadata: { full_name: `${employee.first_name} ${employee.last_name}`, must_change_password: true } })
-    if (createError || !created.user) return json({ error: createError?.message || 'Unable to create the employee account.' }, 400)
+    if (createError || !created.user) {
+      if (/already registered|already exists|duplicate/i.test(createError?.message || '')) return json({ code: 'duplicate_email', error: 'This email already has a portal account. Change the email before creating this employee account.' }, 409)
+      return json({ error: createError?.message || 'Unable to create the employee account.' }, 400)
+    }
     const { error: employeeUpdateError } = await adminClient.from('pms_employees').update({ email: normalizedEmail, auth_user_id: created.user.id, must_change_password: true, password_changed_at: null }).eq('id', employee_id)
     const { error: roleError } = employeeUpdateError ? { error: employeeUpdateError } : await adminClient.from('pms_user_roles').upsert({ user_id: created.user.id, role: 'employee' })
     if (employeeUpdateError || roleError) {

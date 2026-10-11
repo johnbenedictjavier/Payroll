@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
+import { canRoleAccessPath, homePathForRole } from '@/lib/auth'
 
 const publicAsset = (name: string) => `${import.meta.env.BASE_URL}${name}`
 
 export function LoginPage() {
-  const { signIn, isLoading, isConfigured, session, role } = useAuth()
+  const { signIn, isLoading, isConfigured, session, role, identityError } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [employeeNumber, setEmployeeNumber] = useState('')
@@ -21,17 +22,18 @@ export function LoginPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!isLoading && session) navigate(role === 'admin' ? '/admin' : '/employee', { replace: true })
-  }, [isLoading, session, role, navigate])
+    if (!isLoading && session && role && !isSubmitting) navigate(homePathForRole(role), { replace: true })
+  }, [isLoading, session, role, isSubmitting, navigate])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
     setIsSubmitting(true)
     try {
-      await signIn(employeeNumber, password)
+      const signedInRole = await signIn(employeeNumber, password)
       const from = (location.state as { from?: string } | null)?.from
-      navigate(from || '/admin', { replace: true })
+      const destination = from && canRoleAccessPath(from.split('?')[0], signedInRole) ? from : homePathForRole(signedInRole)
+      navigate(destination, { replace: true })
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : 'Invalid credentials.')
     } finally {
@@ -77,7 +79,7 @@ export function LoginPage() {
             <div className="mb-8 lg:hidden"><div className="flex items-center gap-3"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-12 w-20 object-contain" /><div><div className="font-black">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Secure portal</div></div></div></div>
             <div><p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-300">Welcome back</p><h2 className="mt-3 text-3xl font-black tracking-tight">Sign in to continue</h2><p className="mt-2 text-sm text-slate-400">Use your employee number and password.</p></div>
             {!isConfigured && <Alert variant="warning" className="mt-6 border-amber-400/30 bg-amber-400/10 text-amber-100">PMS is not configured in this environment. Contact the PMS administrator.</Alert>}
-            {error && <Alert variant="danger" className="mt-6 border-red-400/30 bg-red-400/10 text-red-100">{error}</Alert>}
+             {(error || identityError) && <Alert role="alert" variant="danger" className="mt-6 border-red-400/30 bg-red-400/10 text-red-100">{error || identityError}</Alert>}
             <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
               <div><Label className="text-slate-400">Employee number</Label><div className="relative"><UserRound className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" /><Input value={employeeNumber} onChange={(event) => setEmployeeNumber(event.target.value)} className="border-white/10 bg-white/[0.06] pl-10 text-white placeholder:text-slate-500" placeholder="26-00001" autoComplete="username" required /></div></div>
               <div><div className="flex items-center justify-between"><Label className="text-slate-400">Password</Label><span className="text-xs text-slate-500">Need help? Contact an administrator.</span></div><div className="relative"><LockKeyhole className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" /><Input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} className="border-white/10 bg-white/[0.06] pl-10 pr-10 text-white placeholder:text-slate-500" placeholder="Enter your password" autoComplete="current-password" required /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-2.5 text-slate-500 hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>

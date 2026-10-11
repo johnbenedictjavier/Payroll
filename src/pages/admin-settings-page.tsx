@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, LockKeyhole, Search, Settings2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { PageHeading } from '@/components/layout/page-heading'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -23,11 +24,13 @@ import {
   updateStatutoryScheduleStatus,
 } from '@/services/api'
 import { supabase } from '@/lib/supabase'
+import { validatePasswordChange, type PasswordErrors, type PasswordField } from '@/lib/password'
 
 type ScheduleType = 'sss' | 'philhealth' | 'pagibig' | 'withholding_tax'
 type CalculationType = 'percentage' | 'fixed' | 'bracket'
 
 export function AdminSettingsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const policies = useQuery({
     queryKey: ['payroll-policies'],
@@ -61,6 +64,8 @@ export function AdminSettingsPage() {
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
+  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
+  const [passwordBusy, setPasswordBusy] = useState(false)
 
   const policyMutation = useMutation({
     mutationFn: () =>
@@ -119,20 +124,22 @@ export function AdminSettingsPage() {
 
   async function changePassword(event: React.FormEvent) {
     event.preventDefault()
-    setMessage('')
-    if (password.length < 8 || password !== confirmation) {
-      setMessage(
-        'Use at least eight characters and make both password fields match.',
-      )
-      return
-    }
-    const { error } = await supabase.auth.updateUser({ password })
-    setMessage(error?.message ?? 'Password updated successfully.')
-    if (!error) {
+    const validationErrors = validatePasswordChange(password, confirmation)
+    setPasswordErrors(validationErrors)
+    if (Object.keys(validationErrors).length > 0) return
+    setPasswordBusy(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) { setPasswordErrors({ password: error.message }); return }
       setPassword('')
       setConfirmation('')
-    }
+      navigate('/admin', { replace: true, state: { passwordChanged: true } })
+    } catch (error) {
+      setPasswordErrors({ password: error instanceof Error ? error.message : 'The password could not be updated.' })
+    } finally { setPasswordBusy(false) }
   }
+
+  function clearPasswordError(field: PasswordField) { setPasswordErrors((current) => ({ ...current, [field]: undefined })) }
 
   return (
     <div>
@@ -187,28 +194,40 @@ export function AdminSettingsPage() {
           <CardDescription>Administrator account security.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={changePassword} className="space-y-4">
-            <div>
-              <Label>New password</Label>
-              <Input
-                type="password"
-                minLength={8}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label>Confirm new password</Label>
-              <Input
-                type="password"
-                minLength={8}
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit">Update password</Button>
+            <form noValidate onSubmit={changePassword} className="space-y-4">
+             <div>
+               <Label htmlFor="admin-new-password">New password</Label>
+               <Input
+                 id="admin-new-password"
+                 type="password"
+                 minLength={8}
+                 value={password}
+                 onFocus={() => clearPasswordError('password')}
+                 onChange={(event) => { clearPasswordError('password'); setPassword(event.target.value) }}
+                 aria-invalid={Boolean(passwordErrors.password)}
+                 aria-describedby={passwordErrors.password ? 'admin-new-password-error' : undefined}
+                 className={passwordErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : undefined}
+                 required
+               />
+               {passwordErrors.password && <p id="admin-new-password-error" className="mt-1 text-xs font-medium text-red-600">{passwordErrors.password}</p>}
+             </div>
+             <div>
+               <Label htmlFor="admin-confirm-password">Confirm new password</Label>
+               <Input
+                 id="admin-confirm-password"
+                 type="password"
+                 minLength={8}
+                 value={confirmation}
+                 onFocus={() => clearPasswordError('confirmation')}
+                 onChange={(event) => { clearPasswordError('confirmation'); setConfirmation(event.target.value) }}
+                 aria-invalid={Boolean(passwordErrors.confirmation)}
+                 aria-describedby={passwordErrors.confirmation ? 'admin-confirm-password-error' : undefined}
+                 className={passwordErrors.confirmation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : undefined}
+                 required
+               />
+               {passwordErrors.confirmation && <p id="admin-confirm-password-error" className="mt-1 text-xs font-medium text-red-600">{passwordErrors.confirmation}</p>}
+             </div>
+             <Button type="submit" disabled={passwordBusy}>{passwordBusy ? 'Updating...' : 'Update password'}</Button>
           </form>
         </CardContent>
       </Card>
