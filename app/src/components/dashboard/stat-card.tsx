@@ -1,0 +1,8 @@
+import type { LucideIcon } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
+
+export function StatCard({ label, value, detail, icon: Icon, tone = 'teal', trend }: { label: string; value: string | number; detail?: string; icon: LucideIcon; tone?: 'teal' | 'navy' | 'amber' | 'violet'; trend?: number }) {
+  return <Card className="relative overflow-hidden p-5"><div className={cn('absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-10', tone === 'teal' && 'bg-teal-500', tone === 'navy' && 'bg-blue-700', tone === 'amber' && 'bg-amber-500', tone === 'violet' && 'bg-violet-500')} /><div className="relative flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-3 text-2xl font-black tracking-tight">{value}</p>{detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}{trend !== undefined && <span className={cn('mt-3 inline-flex items-center gap-1 text-xs font-bold', trend >= 0 ? 'text-emerald-600' : 'text-red-600')}>{trend >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}{Math.abs(trend)}% from last period</span>}</div><div className={cn('rounded-xl p-3', tone === 'teal' && 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300', tone === 'navy' && 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300', tone === 'amber' && 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300', tone === 'violet' && 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300')}><Icon className="h-5 w-5" /></div></div></Card>
+}

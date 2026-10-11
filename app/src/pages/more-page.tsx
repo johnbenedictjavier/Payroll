@@ -1,0 +1,13 @@
+import { Link } from 'react-router-dom'
+import { Archive, ArrowRight, Building2, CircleDollarSign, ClipboardCheck, HandCoins, ReceiptText, Settings, UserRound, WalletCards } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
+import { PageHeading } from '@/components/layout/page-heading'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
+export function MorePage() {
+  const { role } = useAuth()
+  const adminLinks = [{ label: 'Organization', description: 'Departments and positions', to: '/admin/organization', icon: Building2 }, { label: 'Attendance', description: 'Payroll-period attendance inputs', to: '/admin/attendance', icon: ClipboardCheck }, { label: 'Loans', description: 'Loan types, balances, and priority', to: '/admin/loans', icon: HandCoins }, { label: 'Salary configuration', description: 'Effective-dated salary history', to: '/admin/salaries', icon: CircleDollarSign }, { label: 'Income and deductions', description: 'Approved payroll transactions', to: '/admin/transactions', icon: ReceiptText }, { label: 'Settings', description: 'Account and payroll configuration', to: '/admin/settings', icon: Settings }]
+  const employeeLinks = [{ label: 'My profile', description: 'Personal information and change requests', to: '/employee/profile', icon: UserRound }, { label: 'My loans', description: 'Loan balances and repayments', to: '/employee/payroll', icon: WalletCards }, { label: 'Settings', description: 'Password and account security', to: '/employee/settings', icon: Settings }, { label: 'Help and policies', description: 'Payroll information and support', to: '/employee/profile', icon: Archive }]
+  const links = role === 'admin' ? adminLinks : employeeLinks
+  return <div><PageHeading eyebrow="More" title="More workspace tools" description="Secondary features remain one tap away on mobile and available from the desktop sidebar." /><Card className="max-w-2xl"><CardHeader><CardTitle>Available tools</CardTitle><CardDescription>Choose a section to continue.</CardDescription></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{links.map(({ label, description, to, icon: Icon }) => <Link key={label} to={to} className="flex items-center gap-3 rounded-xl border p-4 transition hover:border-primary/40 hover:bg-primary/5"><div className="rounded-lg bg-primary/10 p-2 text-primary"><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="font-semibold">{label}</div><div className="text-xs text-muted-foreground">{description}</div></div><ArrowRight className="h-4 w-4 text-muted-foreground" /></Link>)}</CardContent></Card></div>
+}

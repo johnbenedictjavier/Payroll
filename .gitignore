@@ -1,0 +1,29 @@
+# Dependencies and local build output
+node_modules/
+dist/
+.vercel/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local database exports and audit output
+legacy-live-aura_payroll.sql
+legacy-*.sql
+aura_payroll.sql
+migration-output/
+audit-output/
+
+# Local PHP runtime files
+uploads/
+
+# Logs and editor files
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# Generated Supabase artifacts
+supabase/.branches/
+supabase/.temp/

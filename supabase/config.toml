@@ -1,0 +1,10 @@
+project_id = "puqnwypfdbzqxykamrvj"
+
+[functions.employee-login]
+verify_jwt = false
+
+[functions.provision-employee]
+verify_jwt = true
+
+[functions.payslip-download]
+verify_jwt = true

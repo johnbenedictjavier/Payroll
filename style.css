@@ -1,0 +1,472 @@
+/* =====================================================================
+   AURA — Payroll System Dark Theme
+   ===================================================================== */
+
+:root {
+    --aura-bg: #0b1220;
+    --aura-bg-soft: #0e1728;
+    --aura-nav: #060a13;
+    --aura-card: #131c2e;
+    --aura-card-alt: #182338;
+    --aura-card-hover: #1c2a44;
+    --aura-border: #263349;
+    --aura-border-soft: #1d2740;
+    --aura-text: #e7ecf5;
+    --aura-text-dim: #8fa0bd;
+    --aura-text-faint: #5c6c88;
+    --aura-accent: #17c3b2;
+    --aura-accent-dark: #0e9c8e;
+    --aura-gold: #ffc107;
+    --aura-success: #2ecc71;
+    --aura-info: #3ea6ff;
+    --aura-danger: #ff5b6e;
+    --aura-warning: #ffb020;
+    --aura-radius: 16px;
+    --aura-radius-sm: 10px;
+    --aura-radius-pill: 999px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background-color: var(--aura-bg);
+    color: var(--aura-text);
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+body.bg-dark, body.login-body { background-color: var(--aura-bg) !important; }
+
+a { text-decoration: none; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--aura-border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--aura-accent-dark); }
+
+.main-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px;
+}
+
+/* ---------------------------------------------------------------------
+   NAVBAR
+   --------------------------------------------------------------------- */
+.navbar.aura-navbar {
+    background-color: var(--aura-nav) !important;
+    border-bottom: 1px solid var(--aura-border-soft);
+    padding: 10px 24px;
+}
+
+.aura-logo {
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: var(--aura-text);
+    background: linear-gradient(135deg, var(--aura-accent), #6de3d6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.aura-tagline {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--aura-text-dim);
+    text-transform: uppercase;
+    padding-left: 14px;
+    margin-left: 14px;
+    border-left: 1px solid var(--aura-border);
+}
+
+.aura-navbar .nav-link {
+    color: var(--aura-text-dim) !important;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 8px 14px !important;
+    border-radius: var(--aura-radius-pill);
+    transition: all .15s ease;
+}
+.aura-navbar .nav-link:hover,
+.aura-navbar .nav-link.active { color: var(--aura-text) !important; background: var(--aura-card-alt); }
+
+.aura-navbar .dropdown-menu {
+    background-color: var(--aura-card-alt);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--aura-radius-sm);
+    box-shadow: 0 10px 30px rgba(0,0,0,.4);
+}
+.aura-navbar .dropdown-item {
+    color: var(--aura-text-dim);
+    font-size: 13px;
+    padding: 8px 16px;
+}
+.aura-navbar .dropdown-item:hover { background: var(--aura-card-hover); color: var(--aura-text); }
+
+.aura-logout {
+    background: rgba(255,91,110,.15) !important;
+    color: var(--aura-danger) !important;
+    border-radius: var(--aura-radius-pill) !important;
+    padding: 8px 16px !important;
+    transition: all .15s ease;
+}
+.aura-logout:hover { background: var(--aura-danger) !important; color: #fff !important; }
+
+/* ---------------------------------------------------------------------
+   PAGE HEADER
+   --------------------------------------------------------------------- */
+.page-header {
+    background: linear-gradient(180deg, var(--aura-bg-soft), var(--aura-bg));
+    border-bottom: 2px solid var(--aura-accent);
+    padding: 16px 26px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--aura-text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.page-header .title-group { display: flex; align-items: center; gap: 10px; }
+.page-header .text-primary { color: var(--aura-accent) !important; }
+
+.header-toolbar { display: flex; gap: 8px; }
+.btn-toolbar-icon {
+    background: var(--aura-card-alt);
+    border: 1px solid var(--aura-border) !important;
+    color: var(--aura-text-dim);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: 7px 14px;
+    border-radius: var(--aura-radius-pill) !important;
+    transition: all .15s ease;
+}
+.btn-toolbar-icon:hover { background: var(--aura-card-hover); color: var(--aura-text); }
+.btn-toolbar-icon.danger:hover { background: var(--aura-danger); color: #fff; border-color: var(--aura-danger) !important; }
+.btn-toolbar-icon.primary { background: var(--aura-accent); color: #06231f; border-color: var(--aura-accent) !important; }
+.btn-toolbar-icon.primary:hover { background: var(--aura-accent-dark); }
+
+/* ---------------------------------------------------------------------
+   CARDS (generic)
+   --------------------------------------------------------------------- */
+.card, .aura-card {
+    background-color: var(--aura-card) !important;
+    border: 1px solid var(--aura-border) !important;
+    border-radius: var(--aura-radius) !important;
+    color: var(--aura-text);
+}
+.full-height-card { display: flex; flex-direction: column; height: 100%; }
+
+.card-header.aura-card-header {
+    background-color: var(--aura-card-alt) !important;
+    border-bottom: 1px solid var(--aura-border) !important;
+    border-radius: var(--aura-radius) var(--aura-radius) 0 0 !important;
+    padding: 14px 18px;
+}
+.card-header.aura-card-header .big { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+
+.scroll-table-container { flex: 1; overflow-y: auto; padding: 14px; }
+
+/* ---------------------------------------------------------------------
+   BUTTONS
+   --------------------------------------------------------------------- */
+.btn-aura-light {
+    background: #e7ecf5;
+    color: #0f172a;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    border-radius: var(--aura-radius-pill);
+    border: none;
+    transition: all .15s ease;
+}
+.btn-aura-light:hover { background: var(--aura-accent); color: #06231f; }
+
+.btn-aura-accent {
+    background: var(--aura-accent);
+    color: #06231f;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    border-radius: var(--aura-radius-pill);
+    border: none;
+    transition: all .15s ease;
+}
+.btn-aura-accent:hover { background: var(--aura-accent-dark); color: #fff; }
+
+.btn-aura-outline {
+    background: transparent;
+    color: var(--aura-text-dim);
+    border: 1px dashed var(--aura-border);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    border-radius: var(--aura-radius-sm);
+    width: 100%;
+    transition: all .15s ease;
+}
+.btn-aura-outline:hover { border-color: var(--aura-accent); color: var(--aura-accent); }
+
+.icon-btn {
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--aura-border);
+    background: var(--aura-bg-soft);
+    color: var(--aura-text-dim);
+    font-size: 12px;
+    transition: all .15s ease;
+}
+.icon-btn:hover { color: #fff; }
+.icon-btn.edit:hover { background: var(--aura-info); border-color: var(--aura-info); }
+.icon-btn.delete:hover { background: var(--aura-danger); border-color: var(--aura-danger); }
+
+.btn-viewstaff {
+    background: var(--aura-card-alt);
+    border: 1px solid var(--aura-border);
+    color: var(--aura-text-dim);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: var(--aura-radius-pill);
+    display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-viewstaff:hover { color: var(--aura-text); border-color: var(--aura-accent); }
+
+/* ---------------------------------------------------------------------
+   DEPARTMENT CATALOG
+   --------------------------------------------------------------------- */
+.dept-list { display: flex; flex-direction: column; gap: 12px; }
+
+.dept-card {
+    background: var(--aura-card-alt);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--aura-radius-sm);
+    padding: 14px 16px;
+    transition: all .15s ease;
+    position: relative;
+}
+.dept-card:hover { border-color: var(--aura-accent); }
+.dept-card.active { border-color: var(--aura-accent); background: linear-gradient(135deg, rgba(23,195,178,.14), var(--aura-card-alt)); }
+
+.dept-icon {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    background: rgba(23,195,178,.15);
+    color: var(--aura-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.dept-name { font-weight: 700; color: var(--aura-text); font-size: 14.5px; line-height: 1.3; }
+.dept-count { color: var(--aura-text-faint); font-size: 11.5px; margin-top: 4px; }
+
+.dept-card-actions {
+    position: absolute; top: 10px; right: 10px;
+    display: flex; gap: 6px; opacity: 0; transition: opacity .15s ease;
+}
+.dept-card:hover .dept-card-actions { opacity: 1; }
+
+.dept-chevron { color: var(--aura-text-faint); font-size: 14px; }
+
+.empty-state {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--aura-text-faint);
+    background: var(--aura-card-alt);
+    border: 1px dashed var(--aura-border);
+    border-radius: var(--aura-radius-sm);
+}
+.empty-state i { font-size: 30px; margin-bottom: 10px; display: block; color: var(--aura-text-faint); }
+
+/* ---------------------------------------------------------------------
+   POSITIONS PANEL
+   --------------------------------------------------------------------- */
+.pos-row {
+    background: var(--aura-card-alt);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--aura-radius-sm);
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    transition: all .15s ease;
+}
+.pos-row:hover { border-color: var(--aura-border); background: var(--aura-card-hover); }
+
+.pos-name { font-weight: 700; font-size: 14.5px; color: var(--aura-text); display: flex; align-items: center; gap: 8px; }
+
+.badge-status {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: var(--aura-radius-pill);
+}
+.badge-active { background: rgba(46,204,113,.15); color: var(--aura-success); }
+.badge-new { background: rgba(62,166,255,.15); color: var(--aura-info); }
+
+.pos-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ---------------------------------------------------------------------
+   FORMS / INPUTS
+   --------------------------------------------------------------------- */
+.form-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--aura-text-dim); margin-bottom: 4px; }
+
+.form-control, .form-select {
+    background-color: var(--aura-bg-soft) !important;
+    border: 1px solid var(--aura-border) !important;
+    color: var(--aura-text) !important;
+    border-radius: var(--aura-radius-sm) !important;
+}
+.form-control::placeholder { color: var(--aura-text-faint); }
+.form-control:focus, .form-select:focus {
+    background-color: var(--aura-bg-soft) !important;
+    border-color: var(--aura-accent) !important;
+    box-shadow: 0 0 0 3px rgba(23,195,178,.15) !important;
+    color: var(--aura-text) !important;
+}
+.form-control[readonly] { opacity: .6; }
+.form-control-sm, .form-select-sm { font-size: 13px; padding: 8px 12px; }
+
+/* ---------------------------------------------------------------------
+   MODALS
+   --------------------------------------------------------------------- */
+.modal-content {
+    background-color: var(--aura-card) !important;
+    border: 1px solid var(--aura-border) !important;
+    border-radius: var(--aura-radius) !important;
+    color: var(--aura-text);
+}
+.modal-header, .modal-footer { border-color: var(--aura-border) !important; }
+.modal-header.bg-light, .modal-header.bg-dark { background-color: var(--aura-card-alt) !important; color: var(--aura-text) !important; }
+.table-dark { --bs-table-bg: var(--aura-card-alt); }
+
+/* ---------------------------------------------------------------------
+   TABLES
+   --------------------------------------------------------------------- */
+.table { color: var(--aura-text); }
+.table-striped tbody tr:nth-of-type(odd) { background-color: var(--aura-bg-soft); --bs-table-accent-bg: var(--aura-bg-soft); color: var(--aura-text); }
+.table-striped tbody tr:nth-of-type(even) { background-color: var(--aura-card); --bs-table-accent-bg: var(--aura-card); color: var(--aura-text); }
+.table-hover tbody tr:hover { background-color: var(--aura-card-hover) !important; color: var(--aura-text); }
+.table thead { background-color: var(--aura-nav); color: #fff; }
+.table > :not(caption) > * > * { border-bottom-color: var(--aura-border); }
+
+/* ---------------------------------------------------------------------
+   EMPLOYEE INFORMATION PAGE
+   --------------------------------------------------------------------- */
+.emp-shell { display: flex; gap: 18px; height: 100%; }
+
+.emp-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--aura-card);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--aura-radius);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: fit-content;
+}
+
+.emp-tab-btn {
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    color: var(--aura-text-dim);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 12px 14px;
+    border-radius: var(--aura-radius-sm);
+    transition: all .15s ease;
+}
+.emp-tab-btn:hover { background: var(--aura-card-alt); color: var(--aura-text); }
+.emp-tab-btn.active {
+    background: rgba(23,195,178,.12);
+    border-left-color: var(--aura-accent);
+    color: var(--aura-accent);
+}
+
+.emp-content {
+    flex: 1;
+    background: var(--aura-card);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--aura-radius);
+    padding: 22px;
+    overflow-y: auto;
+}
+
+.photo-upload-box {
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 100px;
+    background: var(--aura-bg-soft);
+    border: 1px dashed var(--aura-border);
+    border-radius: var(--aura-radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--aura-text-faint);
+    font-size: 10px;
+    text-align: center;
+    gap: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+.photo-upload-box i { font-size: 20px; }
+.photo-upload-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo-upload-box img { width: 100%; height: 100%; object-fit: cover; }
+
+.tab-section-title {
+    font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--aura-accent); margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--aura-border);
+}
+
+.placeholder-tab { color: var(--aura-text-faint); padding: 30px; text-align: center; }
+
+
+/* ---------------------------------------------------------------------
+   LOGIN PAGE
+   --------------------------------------------------------------------- */
+.login-page { background: radial-gradient(circle at 20% 20%, #101c33 0%, var(--aura-bg) 60%); }
+.login-card {
+    background: var(--aura-card) !important;
+    border: 1px solid var(--aura-border) !important;
+    border-radius: var(--aura-radius) !important;
+    overflow: hidden;
+}
+.login-card .login-header {
+    background: linear-gradient(135deg, #0e1728, #101c33);
+    border-bottom: 2px solid var(--aura-accent);
+}
+
+/* misc */
+.text-muted { color: var(--aura-text-faint) !important; }
+.italic { font-style: italic; }
+
+
