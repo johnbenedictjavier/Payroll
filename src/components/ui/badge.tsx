@@ -4,11 +4,11 @@ export function Badge({ className, variant = 'default', children, ...props }: Re
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide',
+        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide transition-colors',
         variant === 'default' && 'bg-accent text-accent-foreground',
-        variant === 'success' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-        variant === 'warning' && 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-        variant === 'danger' && 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+        variant === 'success' && 'bg-success/15 text-success dark:bg-success/20',
+        variant === 'warning' && 'bg-warning/20 text-amber-800 dark:bg-warning/20 dark:text-amber-200',
+        variant === 'danger' && 'bg-destructive/15 text-red-700 dark:bg-destructive/20 dark:text-red-200',
         variant === 'muted' && 'bg-secondary text-muted-foreground',
         className,
       )}

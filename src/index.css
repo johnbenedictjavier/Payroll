@@ -18,6 +18,12 @@
     --accent-foreground: 161 76% 25%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+    --success: 161 76% 34%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 27 80% 18%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 161 76% 34%;
@@ -39,24 +45,39 @@
     --accent-foreground: 161 70% 75%;
     --destructive: 0 62% 45%;
     --destructive-foreground: 210 40% 98%;
+    --success: 161 70% 52%;
+    --success-foreground: 222 47% 8%;
+    --warning: 38 92% 58%;
+    --warning-foreground: 27 80% 10%;
+    --info: 199 89% 58%;
+    --info-foreground: 222 47% 8%;
     --border: 217 33% 22%;
     --input: 217 33% 22%;
     --ring: 161 70% 52%;
   }
 
   * { @apply border-border; }
-  html { @apply bg-background; }
-  body { @apply min-h-screen bg-background text-foreground antialiased; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+  html { @apply bg-background; color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body { @apply min-h-screen bg-background text-foreground antialiased; font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; font-feature-settings: 'cv11' 1, 'ss01' 1; }
   button, input, select, textarea { font: inherit; }
   button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background; }
 }
 
 @layer utilities {
-  .pms-gradient { @apply bg-primary; }
-  .pms-gradient-soft { @apply bg-emerald-50 dark:bg-emerald-950/20; }
-  .money { @apply tabular-nums tracking-tight; }
-  .banking-card { @apply rounded-xl border bg-card shadow-sm; }
+  .pms-gradient { @apply bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-[length:200%_100%] text-white motion-safe:animate-gradient-flow; }
+  .pms-gradient-soft { @apply bg-gradient-to-br from-emerald-50 via-background to-cyan-50 dark:from-emerald-950/30 dark:via-background dark:to-cyan-950/20; }
+  .action-gradient { @apply bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-[length:200%_100%] text-white shadow-sm transition-[background-position,box-shadow,transform] hover:bg-[position:100%_50%] hover:shadow-banking active:scale-[0.98] motion-safe:animate-gradient-flow; }
+  .action-gradient-danger { @apply bg-gradient-to-r from-red-600 to-rose-500 bg-[length:200%_100%] text-white shadow-sm transition-[background-position,box-shadow,transform] hover:bg-[position:100%_50%] hover:shadow-banking active:scale-[0.98]; }
+  .money { @apply tabular-nums tracking-tight; font-variant-numeric: tabular-nums lining-nums; }
+  .banking-card { @apply rounded-xl border bg-card shadow-sm transition-shadow duration-300 hover:shadow-soft; }
   .section-kicker { @apply text-[10px] font-bold uppercase tracking-[0.18em] text-primary; }
+  .page-transition { @apply animate-page-in; }
+  .motion-card { @apply transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:shadow-banking; }
+  .surface-glow { @apply relative overflow-hidden; }
+  .surface-glow::after { content: ''; @apply pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl; }
+  .shimmer { background: linear-gradient(110deg, hsl(var(--secondary)) 25%, hsl(var(--card)) 37%, hsl(var(--secondary)) 63%); background-size: 400% 100%; @apply motion-safe:animate-shimmer; }
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
   .scrollbar-subtle::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-subtle::-webkit-scrollbar-thumb { @apply rounded-full bg-slate-300 dark:bg-slate-700; }
@@ -64,5 +85,8 @@
   @media (max-width: 639px) {
     .pms-profile-form .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
     .pms-profile-form .col-span-2 { grid-column: span 1 / span 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
   }
 }

@@ -41,3 +41,14 @@ export function toNumber(value: string | number | null | undefined) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
 }
+
+export function getTimeGreeting(date = new Date(), timeZone = 'Asia/Manila') {
+  const hour = Number(new Intl.DateTimeFormat('en-PH', { hour: '2-digit', hour12: false, timeZone }).format(date))
+  if (hour >= 5 && hour < 12) return 'Good morning'
+  if (hour >= 12 && hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+export function formatToday(date = new Date(), timeZone = 'Asia/Manila') {
+  return new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'long', day: 'numeric', timeZone }).format(date)
+}

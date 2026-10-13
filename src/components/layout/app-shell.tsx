@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
   Bell,
@@ -68,6 +68,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lcc-theme') === 'dark')
+  const mobileSidebarRef = useRef<HTMLElement>(null)
+  const mobilePreviousFocus = useRef<HTMLElement | null>(null)
   const nav = navForRole(role)
   const passwordChanged = Boolean((location.state as { passwordChanged?: boolean } | null)?.passwordChanged)
   const mobileNav = role === 'admin'
@@ -89,6 +91,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => setMobileOpen(false), [location.pathname])
 
+  useEffect(() => {
+    if (!mobileOpen) return
+    mobilePreviousFocus.current = document.activeElement as HTMLElement | null
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileOpen(false) }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', closeOnEscape)
+    requestAnimationFrame(() => mobileSidebarRef.current?.querySelector<HTMLElement>('button, a')?.focus())
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', closeOnEscape)
+      mobilePreviousFocus.current?.focus()
+    }
+  }, [mobileOpen])
+
   function handleSignOut() {
     setConfirmSignOut(true)
   }
@@ -100,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-          <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-card transition-all lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
+          <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-card transition-all duration-300 lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
           <div className={cn('border-b', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
             <div className={cn('flex items-center gap-2', collapsed ? 'flex-col' : 'justify-between')}>
               <Link to={role === 'admin' ? '/admin' : '/employee'} className={cn('flex min-w-0 flex-1 items-center gap-3', collapsed && 'justify-center')}>
@@ -124,8 +141,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 lg:hidden" onClick={() => setMobileOpen(false)} />}
-       <aside className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-banking transition-transform lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
+       {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 motion-safe:animate-page-in lg:hidden" onClick={() => setMobileOpen(false)} />}
+        <aside ref={mobileSidebarRef} aria-label="Mobile navigation" className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-banking transition-transform duration-300 lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
            <div className="flex h-20 items-center justify-between border-b px-5">
               <div className="flex min-w-0 items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-start justify-center overflow-hidden rounded-xl bg-white shadow-sm"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-16 w-16 max-w-none object-contain" /></div><div className="min-w-0"><div className="whitespace-nowrap font-black">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{titleCase(role)} portal</div></div></div>
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button>
@@ -149,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-          <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}{children}</div>
+          <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}<div key={location.pathname} className="page-transition">{children}</div></div>
        </main>
 
        <Dialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} title="Sign out?" description="Your current session will end on this device.">
@@ -168,9 +185,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function NavItem({ item, collapsed = false, mobile = false }: { item: NavItem; collapsed?: boolean; mobile?: boolean }) {
   const Icon = item.icon
-   return <NavLink end={item.end} to={item.to} title={collapsed ? item.label : undefined} className={({ isActive }) => cn('group flex items-center gap-3 rounded-lg text-sm font-semibold transition', mobile ? 'min-w-0 flex-col gap-1 px-1 py-1.5 text-[10px]' : 'px-3 py-2.5', (isActive || item.active) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground', collapsed && 'justify-center px-2')}><Icon className={cn('h-4 w-4 shrink-0', mobile && 'h-5 w-5')} />{!collapsed && <span className={cn('truncate', mobile && 'max-w-full')}>{item.label}</span>}</NavLink>
+   return <NavLink end={item.end} to={item.to} title={collapsed ? item.label : undefined} className={({ isActive }) => cn('group flex items-center gap-3 rounded-lg text-sm font-semibold transition active:scale-[0.98]', mobile ? 'min-w-0 flex-col gap-1 px-1 py-1.5 text-[10px]' : 'px-3 py-2.5', (isActive || item.active) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground', collapsed && 'justify-center px-2')}><Icon className={cn('h-4 w-4 shrink-0 transition-transform group-hover:scale-105', mobile && 'h-5 w-5')} />{!collapsed && <span className={cn('truncate', mobile && 'max-w-full')}>{item.label}</span>}</NavLink>
 }
 
 function NotificationPanel({ notifications, onRead }: { notifications: Notification[]; onRead: (notification: Notification) => void }) {
-  return <Card className="fixed right-4 top-[5.25rem] z-50 w-[min(22rem,calc(100vw-2rem))] p-2 sm:right-6 lg:right-8"><div className="flex items-center justify-between px-3 py-2"><span className="font-bold">Notifications</span>{notifications.length > 0 && <Badge variant="muted">{notifications.length}</Badge>}</div>{notifications.length === 0 ? <p className="px-3 py-6 text-center text-sm text-muted-foreground">You are all caught up.</p> : <div className="max-h-80 overflow-y-auto">{notifications.map((notification) => <button key={notification.id} onClick={() => onRead(notification)} className={cn('w-full rounded-lg px-3 py-3 text-left hover:bg-secondary', !notification.read_at && 'bg-primary/5')}><div className="flex items-start gap-2"><Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><div className="text-sm font-semibold">{notification.title}</div><p className="mt-0.5 text-xs text-muted-foreground">{notification.message}</p></div></div></button>)}</div>}</Card>
+  return <Card className="motion-safe:animate-page-in fixed right-4 top-[4.75rem] z-50 w-[min(22rem,calc(100vw-2rem))] p-2 shadow-banking sm:right-6 lg:right-8"><div className="flex items-center justify-between px-3 py-2"><span className="font-bold">Notifications</span>{notifications.length > 0 && <Badge variant="muted">{notifications.length}</Badge>}</div>{notifications.length === 0 ? <p className="px-3 py-6 text-center text-sm text-muted-foreground">You are all caught up.</p> : <div className="max-h-80 overflow-y-auto">{notifications.map((notification) => <button type="button" key={notification.id} onClick={() => onRead(notification)} className={cn('w-full rounded-lg px-3 py-3 text-left transition hover:bg-secondary', !notification.read_at && 'bg-primary/5')}><div className="flex items-start gap-2"><Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><div className="text-sm font-semibold">{notification.title}</div><p className="mt-0.5 text-xs text-muted-foreground">{notification.message}</p></div></div></button>)}</div>}</Card>
 }
