@@ -32,7 +32,7 @@ import { Alert } from '@/components/ui/alert'
 import { listNotifications, markNotificationRead } from '@/services/api'
 import type { Notification, Role } from '@/types/database'
 
-type NavItem = { label: string; to: string; icon: typeof LayoutDashboard; end?: boolean }
+type NavItem = { label: string; to: string; icon: typeof LayoutDashboard; end?: boolean; active?: boolean }
 
 const publicAsset = (name: string) => `${import.meta.env.BASE_URL}${name}`
 
@@ -71,8 +71,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const nav = navForRole(role)
   const passwordChanged = Boolean((location.state as { passwordChanged?: boolean } | null)?.passwordChanged)
   const mobileNav = role === 'admin'
-    ? [adminNav[0], adminNav[1], adminNav[3], adminNav[5], { label: 'More', to: '/admin/more', icon: Menu }]
-    : [employeeNav[0], employeeNav[1], employeeNav[2], employeeNav[3], { label: 'More', to: '/employee/more', icon: Menu }]
+    ? [adminNav[0], adminNav[1], adminNav[3], adminNav[5], { label: 'More', to: '/admin/more', icon: Menu, active: ['/admin/organization', '/admin/loans', '/admin/attendance', '/admin/salaries', '/admin/transactions', '/admin/settings', '/admin/more'].some((path) => location.pathname.startsWith(path)) }]
+    : [employeeNav[0], employeeNav[1], employeeNav[2], employeeNav[3], { label: 'More', to: '/employee/more', icon: Menu, active: ['/employee/profile', '/employee/settings', '/employee/more'].some((path) => location.pathname.startsWith(path)) }]
   const displayName = profile?.full_name || (employee ? `${employee.first_name} ${employee.last_name}`.trim() : user?.email || 'User')
 
   useEffect(() => {
@@ -100,18 +100,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-         <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-gradient-to-b from-card via-card to-emerald-50/70 transition-all dark:to-emerald-950/20 lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
+          <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-card transition-all lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
           <div className={cn('border-b', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
             <div className={cn('flex items-center gap-2', collapsed ? 'flex-col' : 'justify-between')}>
               <Link to={role === 'admin' ? '/admin' : '/employee'} className={cn('flex min-w-0 flex-1 items-center gap-3', collapsed && 'justify-center')}>
                <div className="flex h-11 w-11 shrink-0 items-start justify-center overflow-hidden rounded-xl bg-white shadow-sm"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-16 w-16 max-w-none object-contain" /></div>
               {!collapsed && <div className="min-w-0 flex-1"><div className="whitespace-nowrap font-black tracking-tight">Paynexus PMS</div><div className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{role === 'admin' ? 'Admin portal' : 'Employee portal'}</div></div>}
               </Link>
-              <Button variant="secondary" size="icon" onClick={() => setCollapsed((value) => !value)} className="shrink-0 border border-primary/10 text-primary shadow-sm hover:bg-primary/10" aria-expanded={!collapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}</Button>
+               <Button variant="ghost" size="icon" onClick={() => setCollapsed((value) => !value)} className="shrink-0" aria-expanded={!collapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}</Button>
             </div>
             <div className={cn('mt-3 flex items-center gap-2', collapsed ? 'flex-col' : 'px-1')}><img src={publicAsset('ccte.png')} alt="CCTE" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} /><img src={publicAsset('lcc.png')} alt="Lipa City Colleges" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />{!collapsed && <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Lipa City Colleges<br />People operations</span>}</div>
          </div>
-         <nav className="scrollbar-subtle flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto p-3">
+          <nav className="scrollbar-subtle flex min-h-0 flex-1 flex-col space-y-0.5 overflow-y-auto p-3">
           {!collapsed && <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Workspace</p>}
           {nav.map((item) => <NavItem key={item.to} item={item} collapsed={collapsed} />)}
           {!collapsed && <p className="px-3 pb-2 pt-8 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Account</p>}
@@ -125,17 +125,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 lg:hidden" onClick={() => setMobileOpen(false)} />}
-      <aside className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-xl transition-transform lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
+       <aside className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-banking transition-transform lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
            <div className="flex h-20 items-center justify-between border-b px-5">
               <div className="flex min-w-0 items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-start justify-center overflow-hidden rounded-xl bg-white shadow-sm"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-16 w-16 max-w-none object-contain" /></div><div className="min-w-0"><div className="whitespace-nowrap font-black">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{titleCase(role)} portal</div></div></div>
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button>
         </div>
-          <nav className="scrollbar-subtle flex-1 space-y-1 overflow-y-auto p-3">{mobileNav.map((item) => <NavItem key={item.to} item={item} collapsed={false} />)}<NavItem item={{ label: 'Settings', to: role === 'admin' ? '/admin/settings' : '/employee/settings', icon: Settings }} collapsed={false} /></nav>
+           <nav className="scrollbar-subtle flex-1 space-y-1 overflow-y-auto p-3">{mobileNav.map((item) => <NavItem key={item.to} item={item} collapsed={false} />)}<NavItem item={{ label: 'Settings', to: role === 'admin' ? '/admin/settings' : '/employee/settings', icon: Settings }} collapsed={false} /></nav>
         <div className="border-t p-3"><button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-xl p-3 text-sm text-muted-foreground hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" />Sign out</button></div>
       </aside>
 
       <main className={cn('min-h-screen transition-[padding] lg:pl-64', collapsed && 'lg:pl-[76px]')}>
-        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b bg-background/90 px-4 backdrop-blur sm:px-6 lg:px-8">
+         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur sm:px-6 lg:px-8">
            <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu className="h-5 w-5" /></Button><div className="flex min-w-0 items-center gap-2 font-black tracking-tight lg:hidden"><div className="flex h-8 w-8 shrink-0 items-start justify-center overflow-hidden rounded-lg bg-white"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-12 w-12 max-w-none object-contain" /></div><span className="truncate">Paynexus PMS</span></div><div className="hidden text-sm text-muted-foreground lg:block">{role === 'admin' ? 'Administrator workspace' : 'Your payroll workspace'}</div></div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle theme">{darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-         <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}{children}</div>
+          <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}{children}</div>
        </main>
 
        <Dialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} title="Sign out?" description="Your current session will end on this device.">
@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
          </div>
        </Dialog>
 
-       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 backdrop-blur lg:hidden">
+        <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden">
         {mobileNav.map((item) => <NavItem key={item.to} item={item} mobile />)}
       </nav>
     </div>
@@ -168,7 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function NavItem({ item, collapsed = false, mobile = false }: { item: NavItem; collapsed?: boolean; mobile?: boolean }) {
   const Icon = item.icon
-   return <NavLink end={item.end} to={item.to} title={collapsed ? item.label : undefined} className={({ isActive }) => cn('group flex items-center gap-3 rounded-xl text-sm font-semibold transition', mobile ? 'min-w-0 flex-col gap-1 px-1 py-1.5 text-[10px]' : 'px-3 py-2.5', isActive ? 'bg-gradient-to-r from-primary/15 to-cyan-500/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground', collapsed && 'justify-center px-2')}><Icon className={cn('h-4 w-4 shrink-0', mobile && 'h-5 w-5')} />{!collapsed && <span className={cn('truncate', mobile && 'max-w-full')}>{item.label}</span>}</NavLink>
+   return <NavLink end={item.end} to={item.to} title={collapsed ? item.label : undefined} className={({ isActive }) => cn('group flex items-center gap-3 rounded-lg text-sm font-semibold transition', mobile ? 'min-w-0 flex-col gap-1 px-1 py-1.5 text-[10px]' : 'px-3 py-2.5', (isActive || item.active) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground', collapsed && 'justify-center px-2')}><Icon className={cn('h-4 w-4 shrink-0', mobile && 'h-5 w-5')} />{!collapsed && <span className={cn('truncate', mobile && 'max-w-full')}>{item.label}</span>}</NavLink>
 }
 
 function NotificationPanel({ notifications, onRead }: { notifications: Notification[]; onRead: (notification: Notification) => void }) {

@@ -2,7 +2,7 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
-  return <div className="w-full overflow-x-auto"><table className={cn('w-full text-left text-sm', className)} {...props} /></div>
+  return <div className="scrollbar-subtle w-full overflow-x-auto"><table className={cn('w-full min-w-[42rem] text-left text-sm', className)} {...props} /></div>
 }
 export function TableHeader({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) { return <thead className={cn('border-b bg-secondary/60 text-xs uppercase tracking-wide text-muted-foreground', className)} {...props} /> }
 export function TableBody({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) { return <tbody className={cn('[&_tr:last-child]:border-0', className)} {...props} /> }

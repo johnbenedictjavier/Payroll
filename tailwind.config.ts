@@ -19,7 +19,10 @@ export default {
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
       },
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
-      boxShadow: { soft: '0 12px 36px -20px rgba(15, 23, 42, 0.3)' },
+      boxShadow: {
+        soft: '0 8px 24px -18px rgba(15, 23, 42, 0.32)',
+        banking: '0 16px 40px -28px rgba(15, 23, 42, 0.42)',
+      },
     },
   },
   plugins: [],
