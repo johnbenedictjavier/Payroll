@@ -43,7 +43,7 @@ export function Dialog({ open, onClose, title, description, children, className,
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div className={cn('relative w-full', sideContent ? 'sm:max-w-lg' : 'sm:max-w-2xl')}>
-        {sideContent && <div className="pointer-events-none absolute -top-12 left-4 z-20 sm:-left-20 sm:top-1/2 sm:-translate-y-1/2">{sideContent}</div>}
+        {sideContent && <div className="pointer-events-none absolute -top-24 left-4 z-20 sm:-left-28 sm:top-1/2 sm:-translate-y-1/2">{sideContent}</div>}
         <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={`${dialogId}-title`} aria-describedby={description ? `${dialogId}-description` : undefined} className={cn('motion-safe:animate-modal-in max-h-[92vh] w-full overflow-y-auto rounded-t-xl border bg-card shadow-2xl outline-none sm:rounded-xl', className)}>
           <div className="sticky top-0 z-10 flex items-start justify-between border-b bg-card/95 p-5 backdrop-blur">
             <div><h2 id={`${dialogId}-title`} className="text-lg font-bold">{title}</h2>{description && <p id={`${dialogId}-description`} className="mt-1 text-sm text-muted-foreground">{description}</p>}</div>
