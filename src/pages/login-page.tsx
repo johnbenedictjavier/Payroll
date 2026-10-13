@@ -47,7 +47,7 @@ export function LoginPage() {
 
   return <div className="login-viewport relative h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#071719] text-white">
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_15%,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_90%_85%,rgba(14,165,233,0.12),transparent_30%)]" />
-    <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-7 lg:left-12 lg:top-8"><BrandLockup compact inverse institutions /></div>
+    <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-7 lg:left-12 lg:top-8"><BrandLockup display="login" inverse institutions /></div>
     <div className="relative mx-auto grid h-full w-full max-w-[96rem] min-h-0 lg:grid-cols-[1.08fr_0.92fr]">
       <section className="relative hidden min-h-0 overflow-hidden border-r border-white/10 lg:flex">
         <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:4rem_4rem]" />

@@ -26,8 +26,8 @@ export function ListPagination({
   if (total === 0) return null
 
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t border-dashed pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
+    <div className="mt-4 grid min-w-0 gap-3 border-t border-dashed pt-4 text-xs text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
         <label htmlFor={selectId} className="whitespace-nowrap font-semibold">Show</label>
         <select
           id={selectId}
@@ -39,11 +39,11 @@ export function ListPagination({
           {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
         <span>entries</span>
-        <span className="ml-1 hidden sm:inline">Showing {start}-{end} of {total}</span>
+        <span className="whitespace-nowrap">Showing {start}-{end} of {total}</span>
       </div>
-      <div className="flex items-center justify-between gap-3 sm:justify-end">
-        <span className="sm:hidden">Showing {start}-{end} of {total}</span>
-        <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="whitespace-nowrap font-semibold text-foreground">Page {page} of {pageCount}</span>
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             type="button"
             variant="outline"
@@ -56,7 +56,6 @@ export function ListPagination({
             <ChevronLeft className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Prev</span>
           </Button>
-          <span className="min-w-16 text-center font-semibold text-foreground">{page} / {pageCount}</span>
           <Button
             type="button"
             variant="outline"

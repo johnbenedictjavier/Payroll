@@ -31,6 +31,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { usePagination } from "@/lib/use-pagination";
+import { NexMascot } from "@/components/brand/nex-mascot";
 import {
   listAttendance,
   listEmployeeLoans,
@@ -131,7 +132,8 @@ export function EmployeeDashboardPage() {
           contact your administrator if the problem continues.
         </Alert>
       )}
-      <section className="surface-glow overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-900 p-5 text-white shadow-lift sm:p-7">
+      <section className="surface-glow relative overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-900 p-5 text-white shadow-lift sm:p-7">
+        <NexMascot decorative size="lg" className="absolute -bottom-8 right-[-1rem] z-0 h-40 w-40 opacity-[0.08] sm:h-52 sm:w-52 lg:bottom-auto lg:right-5 lg:top-1/2 lg:h-64 lg:w-64 lg:-translate-y-1/2 lg:opacity-10" />
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">

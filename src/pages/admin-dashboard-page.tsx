@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { usePagination } from "@/lib/use-pagination";
+import { NexMascot } from "@/components/brand/nex-mascot";
 
 export function AdminDashboardPage() {
   const { greeting, today } = useTimeContext();
@@ -72,7 +73,8 @@ export function AdminDashboardPage() {
         </Link>
       </header>
 
-      <section className="surface-glow overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-900 p-5 text-white shadow-lift sm:p-7">
+      <section className="surface-glow relative overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-900 p-5 text-white shadow-lift sm:p-7">
+        <NexMascot decorative size="lg" className="absolute -bottom-8 right-[-1rem] z-0 h-40 w-40 opacity-[0.08] sm:h-52 sm:w-52 lg:bottom-auto lg:right-5 lg:top-1/2 lg:h-64 lg:w-64 lg:-translate-y-1/2 lg:opacity-10" />
         <div className="relative z-10 grid gap-7 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <div className="flex flex-wrap items-center gap-2">
