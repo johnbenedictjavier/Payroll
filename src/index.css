@@ -66,9 +66,9 @@
 }
 
 @layer utilities {
-  .pms-gradient { @apply bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-[length:200%_100%] text-white motion-safe:animate-gradient-flow; }
+  .pms-gradient { @apply bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 bg-[length:200%_100%] text-white motion-safe:animate-gradient-flow; }
   .pms-gradient-soft { @apply bg-gradient-to-br from-emerald-50 via-background to-cyan-50 dark:from-emerald-950/30 dark:via-background dark:to-cyan-950/20; }
-  .action-gradient { @apply bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-[length:200%_100%] text-white shadow-sm transition-[background-position,box-shadow,transform] hover:bg-[position:100%_50%] hover:shadow-banking active:scale-[0.98] motion-safe:animate-gradient-flow; }
+  .action-gradient { @apply bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 bg-[length:200%_100%] text-white shadow-sm transition-[background-position,box-shadow,transform] hover:bg-[position:100%_50%] hover:shadow-banking active:scale-[0.98] motion-safe:animate-gradient-flow; }
   .action-gradient-danger { @apply bg-gradient-to-r from-red-600 to-rose-500 bg-[length:200%_100%] text-white shadow-sm transition-[background-position,box-shadow,transform] hover:bg-[position:100%_50%] hover:shadow-banking active:scale-[0.98]; }
   .money { @apply tabular-nums tracking-tight; font-variant-numeric: tabular-nums lining-nums; }
   .banking-card { @apply rounded-xl border bg-card shadow-sm transition-shadow duration-300 hover:shadow-soft; }
@@ -78,6 +78,9 @@
   .surface-glow { @apply relative overflow-hidden; }
   .surface-glow::after { content: ''; @apply pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl; }
   .shimmer { background: linear-gradient(110deg, hsl(var(--secondary)) 25%, hsl(var(--card)) 37%, hsl(var(--secondary)) 63%); background-size: 400% 100%; @apply motion-safe:animate-shimmer; }
+  .page-rule { @apply border-t border-dashed border-border/80; }
+  .data-row-in { @apply motion-safe:animate-row-in; }
+  .ink-panel { @apply border-slate-800 bg-slate-950 text-white dark:border-slate-700; }
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
   .scrollbar-subtle::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-subtle::-webkit-scrollbar-thumb { @apply rounded-full bg-slate-300 dark:bg-slate-700; }

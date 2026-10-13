@@ -1,39 +1,358 @@
-import { Activity, ArrowRight, CalendarClock, CircleDollarSign, Clock3, Landmark, Search, UserCheck, UsersRound, WalletCards } from 'lucide-react'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { StatCard } from '@/components/dashboard/stat-card'
-import { getDashboardStats, listPayrollPeriods } from '@/services/api'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { useTimeContext } from '@/lib/use-time-context'
-import { Alert } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Activity,
+  ArrowRight,
+  CalendarClock,
+  CircleDollarSign,
+  Clock3,
+  Landmark,
+  Search,
+  UserCheck,
+  UsersRound,
+  WalletCards,
+} from "lucide-react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { getDashboardStats, listPayrollPeriods } from "@/services/api";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { useTimeContext } from "@/lib/use-time-context";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { usePagination } from "@/lib/use-pagination";
 
 export function AdminDashboardPage() {
-  const { greeting, today } = useTimeContext()
-  const stats = useQuery({ queryKey: ['admin-dashboard'], queryFn: getDashboardStats })
-  const periods = useQuery({ queryKey: ['payroll-periods'], queryFn: listPayrollPeriods })
-  const [periodSearch, setPeriodSearch] = useState('')
-  const activePayroll = stats.data?.activePayroll
-  const visiblePeriods = periods.data?.filter((period) => `${period.name} ${period.status} ${period.frequency} ${period.start_date} ${period.end_date}`.toLowerCase().includes(periodSearch.trim().toLowerCase())) ?? []
+  const { greeting, today } = useTimeContext();
+  const stats = useQuery({
+    queryKey: ["admin-dashboard"],
+    queryFn: getDashboardStats,
+  });
+  const periods = useQuery({
+    queryKey: ["payroll-periods"],
+    queryFn: listPayrollPeriods,
+  });
+  const [periodSearch, setPeriodSearch] = useState("");
+  const activePayroll = stats.data?.activePayroll;
+  const filteredPeriods =
+    periods.data?.filter((period) =>
+      `${period.name} ${period.status} ${period.frequency} ${period.start_date} ${period.end_date}`
+        .toLowerCase()
+        .includes(periodSearch.trim().toLowerCase()),
+    ) ?? [];
+  const periodPagination = usePagination(filteredPeriods, periodSearch);
+  const visiblePeriods = periodPagination.pageItems;
 
-  return <div className="page-transition space-y-6">
-    <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="section-kicker">Administrator workspace</div><h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{greeting}, administrator.</h1><p className="mt-2 text-sm text-muted-foreground">{today} · Your people and pay cycle at a glance.</p></div><Link to="/admin/payroll" className="action-gradient inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold sm:w-auto">Open payroll <ArrowRight className="h-4 w-4" /></Link></header>
+  return (
+    <div className="page-transition space-y-6">
+      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <div className="section-kicker">Administrator workspace</div>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+            {greeting}, administrator.
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {today} · Your people and pay cycle at a glance.
+          </p>
+        </div>
+        <Link
+          to="/admin/payroll"
+          className="action-gradient inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold sm:w-auto"
+        >
+          Open payroll <ArrowRight className="h-4 w-4" />
+        </Link>
+      </header>
 
-    <section className="surface-glow overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-900 p-5 text-white shadow-lift sm:p-7">
-      <div className="relative z-10 grid gap-7 lg:grid-cols-[1.1fr_0.9fr] lg:items-end"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">Current pay cycle</span>{activePayroll && <Badge variant={activePayroll.status === 'paid' ? 'success' : 'warning'}>{activePayroll.status}</Badge>}</div><h2 className="mt-5 max-w-xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl">Keep every people decision ready for payday.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">Review readiness, resolve missing inputs, and move approved payroll through its controlled stages.</p><div className="mt-5 flex flex-wrap gap-3"><Link to="/admin/payroll" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 active:scale-[0.98]">Review current period <ArrowRight className="h-4 w-4" /></Link><Link to="/admin/employees/new" className="inline-flex min-h-10 items-center rounded-lg border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-[0.98]">Add employee</Link></div></div><div className="rounded-xl border border-white/10 bg-white/[0.08] p-5 shadow-2xl backdrop-blur-md motion-safe:animate-float-slow"><div className="section-kicker text-emerald-300">Payroll wallet</div><div className="mt-3 truncate text-xl font-bold">{activePayroll?.name ?? 'No active period'}</div><div className="mt-2 text-sm text-slate-400">{activePayroll ? `${formatDate(activePayroll.start_date)} to ${formatDate(activePayroll.end_date)}` : 'Create a period to begin collecting inputs.'}</div><div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/10 pt-4"><div><div className="text-xs text-slate-400">Pay date</div><div className="mt-1 font-bold">{activePayroll ? formatDate(activePayroll.pay_date) : 'Not scheduled'}</div></div><div><div className="text-xs text-slate-400">Expense</div><div className="money mt-1 font-bold">{formatCurrency(stats.data?.payrollExpense)}</div></div></div></div></div>
-    </section>
+      <section className="surface-glow overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-900 p-5 text-white shadow-lift sm:p-7">
+        <div className="relative z-10 grid gap-7 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
+                Current pay cycle
+              </span>
+              {activePayroll && (
+                <Badge
+                  variant={
+                    activePayroll.status === "paid" ? "success" : "warning"
+                  }
+                >
+                  {activePayroll.status}
+                </Badge>
+              )}
+            </div>
+            <h2 className="mt-5 max-w-xl text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+              Keep every people decision ready for payday.
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">
+              Review readiness, resolve missing inputs, and move approved
+              payroll through its controlled stages.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                to="/admin/payroll"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 active:scale-[0.98]"
+              >
+                Review current period <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/admin/employees/new"
+                className="inline-flex min-h-10 items-center rounded-lg border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-[0.98]"
+              >
+                Add employee
+              </Link>
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.08] p-5 shadow-2xl backdrop-blur-md motion-safe:animate-float-slow">
+            <div className="section-kicker text-emerald-300">
+              Payroll wallet
+            </div>
+            <div className="mt-3 truncate text-xl font-bold">
+              {activePayroll?.name ?? "No active period"}
+            </div>
+            <div className="mt-2 text-sm text-slate-400">
+              {activePayroll
+                ? `${formatDate(activePayroll.start_date)} to ${formatDate(activePayroll.end_date)}`
+                : "Create a period to begin collecting inputs."}
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
+              <div>
+                <div className="text-xs text-slate-400">Pay date</div>
+                <div className="mt-1 font-bold">
+                  {activePayroll
+                    ? formatDate(activePayroll.pay_date)
+                    : "Not scheduled"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-400">Expense</div>
+                <div className="money mt-1 font-bold">
+                  {formatCurrency(stats.data?.payrollExpense)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    {stats.isError && <Alert variant="danger">The dashboard could not load. Verify administrator access and try again.</Alert>}
-    {periods.isError && <Alert variant="warning">Payroll readiness details could not be loaded. The dashboard metrics are still available.</Alert>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{stats.isLoading ? Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-32" />) : <><StatCard label="Registered employees" value={stats.data?.totalEmployees ?? 0} detail={`${stats.data?.activeEmployees ?? 0} currently active`} icon={UsersRound} tone="teal" /><StatCard label="Departments" value={stats.data?.totalDepartments ?? 0} detail="Active organizational units" icon={Landmark} tone="navy" /><StatCard label="Positions" value={stats.data?.totalPositions ?? 0} detail="Available assignments" icon={UserCheck} tone="violet" /><StatCard label="Payroll expense" value={formatCurrency(stats.data?.payrollExpense)} detail="Current active period" icon={CircleDollarSign} tone="teal" /><StatCard label="Outstanding loans" value={formatCurrency(stats.data?.outstandingLoans)} detail="Active principal balance" icon={WalletCards} tone="amber" /></>}</div>
-    <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]"><Card className="motion-card"><CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><CardTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-primary" />Payroll readiness</CardTitle><CardDescription>Open a period to review its inputs and status.</CardDescription></div><div className="relative w-full sm:max-w-xs"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={periodSearch} onChange={(event) => setPeriodSearch(event.target.value)} placeholder="Search periods" className="pl-9" /></div></CardHeader><CardContent>{periods.isLoading ? <div className="space-y-3"><Skeleton className="h-16" /><Skeleton className="h-16" /></div> : visiblePeriods.length ? <div className="space-y-2">{visiblePeriods.slice(0, 6).map((period) => <Link key={period.id} to={`/admin/payroll?period=${period.id}`} className="motion-card flex items-center gap-3 rounded-lg border p-4 transition hover:border-primary/40 hover:bg-primary/5"><div className="min-w-0 flex-1"><div className="truncate font-semibold">{period.name}</div><div className="mt-1 text-xs text-muted-foreground">{formatDate(period.start_date)} to {formatDate(period.end_date)} · Pay {formatDate(period.pay_date)}</div></div><Badge variant={period.status === 'finalized' || period.status === 'paid' ? 'success' : period.status === 'cancelled' ? 'danger' : 'warning'}>{period.status}</Badge><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" /></Link>)}</div> : periods.data?.length ? <div className="rounded-lg border border-dashed p-8 text-center"><p className="font-semibold">No matching periods</p><p className="mt-1 text-sm text-muted-foreground">Adjust your search to see other periods.</p></div> : <div className="rounded-lg border border-dashed p-8 text-center"><Clock3 className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-3 font-semibold">No payroll periods yet</p><p className="mt-1 text-sm text-muted-foreground">Create a period before entering attendance.</p></div>}</CardContent></Card><Card className="motion-card"><CardHeader><CardTitle>Operations queue</CardTitle><CardDescription>Shortcuts for the work that keeps payroll moving.</CardDescription></CardHeader><CardContent className="space-y-2"><QueueAction to="/admin/employees/new" icon={UsersRound} label="Add employee" detail="Create a complete profile" /><QueueAction to="/admin/employees" icon={UserCheck} label="Review employees" detail="Manage records and portal access" /><QueueAction to="/admin/attendance" icon={Activity} label="Enter attendance" detail="Prepare a payroll period" /><QueueAction to="/admin/reports" icon={CircleDollarSign} label="View reports" detail="Review finalized payroll" /></CardContent></Card></div>
-  </div>
+      {stats.isError && (
+        <Alert variant="danger">
+          The dashboard could not load. Verify administrator access and try
+          again.
+        </Alert>
+      )}
+      {periods.isError && (
+        <Alert variant="warning">
+          Payroll readiness details could not be loaded. The dashboard metrics
+          are still available.
+        </Alert>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {stats.isLoading ? (
+          Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-32" />
+          ))
+        ) : (
+          <>
+            <StatCard
+              label="Registered employees"
+              value={stats.data?.totalEmployees ?? 0}
+              detail={`${stats.data?.activeEmployees ?? 0} currently active`}
+              icon={UsersRound}
+              tone="teal"
+            />
+            <StatCard
+              label="Departments"
+              value={stats.data?.totalDepartments ?? 0}
+              detail="Active organizational units"
+              icon={Landmark}
+              tone="navy"
+            />
+            <StatCard
+              label="Positions"
+              value={stats.data?.totalPositions ?? 0}
+              detail="Available assignments"
+              icon={UserCheck}
+              tone="violet"
+            />
+            <StatCard
+              label="Payroll expense"
+              value={formatCurrency(stats.data?.payrollExpense)}
+              detail="Current active period"
+              icon={CircleDollarSign}
+              tone="teal"
+            />
+            <StatCard
+              label="Outstanding loans"
+              value={formatCurrency(stats.data?.outstandingLoans)}
+              detail="Active principal balance"
+              icon={WalletCards}
+              tone="amber"
+            />
+          </>
+        )}
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+        <Card className="motion-card">
+          <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-primary" />
+                Payroll readiness
+              </CardTitle>
+              <CardDescription>
+                Open a period to review its inputs and status.
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={periodSearch}
+                onChange={(event) => setPeriodSearch(event.target.value)}
+                placeholder="Search periods"
+                className="pl-9"
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {periods.isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16" />
+                <Skeleton className="h-16" />
+              </div>
+            ) : visiblePeriods.length ? (
+              <div className="space-y-2">
+              {visiblePeriods.map((period) => (
+                  <Link
+                    key={period.id}
+                    to={`/admin/payroll?period=${period.id}`}
+                    className="motion-card flex items-center gap-3 rounded-lg border p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-semibold">
+                        {period.name}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {formatDate(period.start_date)} to{" "}
+                        {formatDate(period.end_date)} · Pay{" "}
+                        {formatDate(period.pay_date)}
+                      </div>
+                    </div>
+                    <Badge
+                      variant={
+                        period.status === "finalized" ||
+                        period.status === "paid"
+                          ? "success"
+                          : period.status === "cancelled"
+                            ? "danger"
+                            : "warning"
+                      }
+                    >
+                      {period.status}
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
+            ) : periods.data?.length ? (
+              <div className="rounded-lg border border-dashed p-8 text-center">
+                <p className="font-semibold">No matching periods</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Adjust your search to see other periods.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed p-8 text-center">
+                <Clock3 className="mx-auto h-7 w-7 text-muted-foreground" />
+                <p className="mt-3 font-semibold">No payroll periods yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create a period before entering attendance.
+                </p>
+              </div>
+             )}
+             <ListPagination
+               total={filteredPeriods.length}
+               start={periodPagination.startIndex}
+               end={periodPagination.endIndex}
+               page={periodPagination.page}
+               pageCount={periodPagination.pageCount}
+               pageSize={periodPagination.pageSize}
+               onPageChange={periodPagination.setPage}
+               onPageSizeChange={periodPagination.setPageSize}
+             />
+           </CardContent>
+        </Card>
+        <Card className="motion-card">
+          <CardHeader>
+            <CardTitle>Operations queue</CardTitle>
+            <CardDescription>
+              Shortcuts for the work that keeps payroll moving.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <QueueAction
+              to="/admin/employees/new"
+              icon={UsersRound}
+              label="Add employee"
+              detail="Create a complete profile"
+            />
+            <QueueAction
+              to="/admin/employees"
+              icon={UserCheck}
+              label="Review employees"
+              detail="Manage records and portal access"
+            />
+            <QueueAction
+              to="/admin/attendance"
+              icon={Activity}
+              label="Enter attendance"
+              detail="Prepare a payroll period"
+            />
+            <QueueAction
+              to="/admin/reports"
+              icon={CircleDollarSign}
+              label="View reports"
+              detail="Review finalized payroll"
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
-function QueueAction({ to, icon: Icon, label, detail }: { to: string; icon: typeof UsersRound; label: string; detail: string }) {
-  return <Link to={to} className="motion-card flex items-center gap-3 rounded-lg border p-3 transition hover:border-primary/40 hover:bg-primary/5"><div className="rounded-lg bg-primary/10 p-2.5 text-primary"><Icon className="h-4 w-4" /></div><div className="min-w-0 flex-1"><div className="text-sm font-semibold">{label}</div><div className="truncate text-xs text-muted-foreground">{detail}</div></div><ArrowRight className="h-4 w-4 text-muted-foreground" /></Link>
+function QueueAction({
+  to,
+  icon: Icon,
+  label,
+  detail,
+}: {
+  to: string;
+  icon: typeof UsersRound;
+  label: string;
+  detail: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="motion-card flex items-center gap-3 rounded-lg border p-3 transition hover:border-primary/40 hover:bg-primary/5"
+    >
+      <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold">{label}</div>
+        <div className="truncate text-xs text-muted-foreground">{detail}</div>
+      </div>
+      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+    </Link>
+  );
 }

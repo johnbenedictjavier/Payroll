@@ -27,14 +27,13 @@ import { EmployeeAvatar } from '@/components/profile/employee-avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { Dialog } from '@/components/ui/dialog'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { Alert } from '@/components/ui/alert'
+import { BrandLockup } from '@/components/brand/brand-lockup'
 import { listNotifications, markNotificationRead } from '@/services/api'
 import type { Notification, Role } from '@/types/database'
 
 type NavItem = { label: string; to: string; icon: typeof LayoutDashboard; end?: boolean; active?: boolean }
-
-const publicAsset = (name: string) => `${import.meta.env.BASE_URL}${name}`
 
 const adminNav: NavItem[] = [
   { label: 'Home', to: '/admin', icon: LayoutDashboard, end: true },
@@ -67,6 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('lcc-theme') === 'dark')
   const mobileSidebarRef = useRef<HTMLElement>(null)
   const mobilePreviousFocus = useRef<HTMLElement | null>(null)
@@ -111,8 +111,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   async function confirmSignOutAction() {
-    setConfirmSignOut(false)
-    await signOut()
+    setSigningOut(true)
+    try { await signOut() } finally { setSigningOut(false); setConfirmSignOut(false) }
   }
 
   return (
@@ -121,12 +121,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className={cn('border-b', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
             <div className={cn('flex items-center gap-2', collapsed ? 'flex-col' : 'justify-between')}>
               <Link to={role === 'admin' ? '/admin' : '/employee'} className={cn('flex min-w-0 flex-1 items-center gap-3', collapsed && 'justify-center')}>
-               <div className="flex h-11 w-11 shrink-0 items-start justify-center overflow-hidden rounded-xl bg-white shadow-sm"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-16 w-16 max-w-none object-contain" /></div>
-              {!collapsed && <div className="min-w-0 flex-1"><div className="whitespace-nowrap font-black tracking-tight">Paynexus PMS</div><div className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{role === 'admin' ? 'Admin portal' : 'Employee portal'}</div></div>}
+               {collapsed ? <img src={`${import.meta.env.BASE_URL}assets/pms.png`} alt="PayNexus PMS" className="h-11 w-11 shrink-0 object-contain" /> : <BrandLockup compact />}
               </Link>
                <Button variant="ghost" size="icon" onClick={() => setCollapsed((value) => !value)} className="shrink-0" aria-expanded={!collapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}</Button>
             </div>
-            <div className={cn('mt-3 flex items-center gap-2', collapsed ? 'flex-col' : 'px-1')}><img src={publicAsset('ccte.png')} alt="CCTE" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} /><img src={publicAsset('lcc.png')} alt="Lipa City Colleges" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />{!collapsed && <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Lipa City Colleges<br />People operations</span>}</div>
+             <div className={cn('mt-3 flex items-center gap-2', collapsed ? 'flex-col' : 'px-1')}><img src={`${import.meta.env.BASE_URL}assets/ccte.png`} alt="CCTE" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} /><img src={`${import.meta.env.BASE_URL}assets/lcc.png`} alt="Lipa City Colleges" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />{!collapsed && <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Lipa City Colleges<br />People operations</span>}</div>
          </div>
           <nav className="scrollbar-subtle flex min-h-0 flex-1 flex-col space-y-0.5 overflow-y-auto p-3">
           {!collapsed && <p className="px-3 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Workspace</p>}
@@ -144,7 +143,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
        {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 motion-safe:animate-page-in lg:hidden" onClick={() => setMobileOpen(false)} />}
         <aside ref={mobileSidebarRef} aria-label="Mobile navigation" className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-banking transition-transform duration-300 lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
            <div className="flex h-20 items-center justify-between border-b px-5">
-              <div className="flex min-w-0 items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-start justify-center overflow-hidden rounded-xl bg-white shadow-sm"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-16 w-16 max-w-none object-contain" /></div><div className="min-w-0"><div className="whitespace-nowrap font-black">Paynexus PMS</div><div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{titleCase(role)} portal</div></div></div>
+               <BrandLockup compact />
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button>
         </div>
            <nav className="scrollbar-subtle flex-1 space-y-1 overflow-y-auto p-3">{mobileNav.map((item) => <NavItem key={item.to} item={item} collapsed={false} />)}<NavItem item={{ label: 'Settings', to: role === 'admin' ? '/admin/settings' : '/employee/settings', icon: Settings }} collapsed={false} /></nav>
@@ -153,7 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main className={cn('min-h-screen transition-[padding] lg:pl-64', collapsed && 'lg:pl-[76px]')}>
          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur sm:px-6 lg:px-8">
-           <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu className="h-5 w-5" /></Button><div className="flex min-w-0 items-center gap-2 font-black tracking-tight lg:hidden"><div className="flex h-8 w-8 shrink-0 items-start justify-center overflow-hidden rounded-lg bg-white"><img src={publicAsset('pms.png')} alt="Paynexus Payroll" className="h-12 w-12 max-w-none object-contain" /></div><span className="truncate">Paynexus PMS</span></div><div className="hidden text-sm text-muted-foreground lg:block">{role === 'admin' ? 'Administrator workspace' : 'Your payroll workspace'}</div></div>
+           <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu className="h-5 w-5" /></Button><BrandLockup compact className="lg:hidden" /><div className="hidden text-sm text-muted-foreground lg:block">{role === 'admin' ? 'Administrator workspace' : 'Your payroll workspace'}</div></div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle theme">{darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
             <div className="relative">
@@ -169,12 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}<div key={location.pathname} className="page-transition">{children}</div></div>
        </main>
 
-       <Dialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} title="Sign out?" description="Your current session will end on this device.">
-         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-           <Button type="button" variant="outline" onClick={() => setConfirmSignOut(false)}>Cancel</Button>
-           <Button type="button" variant="danger" onClick={() => void confirmSignOutAction()}>Sign out</Button>
-         </div>
-       </Dialog>
+        <ConfirmationDialog open={confirmSignOut || signingOut} onClose={() => setConfirmSignOut(false)} onConfirm={() => void confirmSignOutAction()} title="Sign out?" description="Your current session will end on this device." confirmLabel="Sign out" variant="danger" loading={signingOut} />
 
         <nav className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden">
         {mobileNav.map((item) => <NavItem key={item.to} item={item} mobile />)}

@@ -41,8 +41,8 @@ export function Dialog({ open, onClose, title, description, children, className 
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div ref={dialogRef} tabIndex={-1} className={cn('motion-safe:animate-modal-in max-h-[92vh] w-full overflow-y-auto rounded-t-xl border bg-card shadow-2xl outline-none sm:max-w-2xl sm:rounded-xl', className)} aria-labelledby={`${dialogId}-title`} aria-describedby={description ? `${dialogId}-description` : undefined}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={`${dialogId}-title`} aria-describedby={description ? `${dialogId}-description` : undefined} className={cn('motion-safe:animate-modal-in max-h-[92vh] w-full overflow-y-auto rounded-t-xl border bg-card shadow-2xl outline-none sm:max-w-2xl sm:rounded-xl', className)}>
         <div className="sticky top-0 z-10 flex items-start justify-between border-b bg-card/95 p-5 backdrop-blur">
           <div><h2 id={`${dialogId}-title`} className="text-lg font-bold">{title}</h2>{description && <p id={`${dialogId}-description`} className="mt-1 text-sm text-muted-foreground">{description}</p>}</div>
           <button type="button" className="rounded-lg p-2 text-muted-foreground transition hover:bg-secondary hover:text-foreground" onClick={onClose} aria-label="Close dialog"><X className="h-5 w-5" /></button>

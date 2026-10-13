@@ -1,71 +1,79 @@
-import { useState } from 'react'
-import { Check, LockKeyhole, Search, Settings2 } from 'lucide-react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { PageHeading } from '@/components/layout/page-heading'
-import { Alert } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { useState } from "react";
+import { Check, LockKeyhole, Search, Settings2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { PageHeading } from "@/components/layout/page-heading";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ListPagination } from "@/components/ui/list-pagination";
 import {
   createPayrollPolicy,
   createStatutorySchedule,
   listPayrollPolicies,
   listStatutorySchedules,
   updateStatutoryScheduleStatus,
-} from '@/services/api'
-import { supabase } from '@/lib/supabase'
-import { validatePasswordChange, type PasswordErrors, type PasswordField } from '@/lib/password'
+} from "@/services/api";
+import { supabase } from "@/lib/supabase";
+import {
+  validatePasswordChange,
+  type PasswordErrors,
+  type PasswordField,
+} from "@/lib/password";
+import { usePagination } from "@/lib/use-pagination";
 
-type ScheduleType = 'sss' | 'philhealth' | 'pagibig' | 'withholding_tax'
-type CalculationType = 'percentage' | 'fixed' | 'bracket'
+type ScheduleType = "sss" | "philhealth" | "pagibig" | "withholding_tax";
+type CalculationType = "percentage" | "fixed" | "bracket";
 
 export function AdminSettingsPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const policies = useQuery({
-    queryKey: ['payroll-policies'],
+    queryKey: ["payroll-policies"],
     queryFn: listPayrollPolicies,
-  })
+  });
   const schedules = useQuery({
-    queryKey: ['statutory-schedules'],
+    queryKey: ["statutory-schedules"],
     queryFn: listStatutorySchedules,
-  })
+  });
   const [policy, setPolicy] = useState({
-    name: '',
-    payroll_frequency: 'monthly' as 'monthly' | 'semi_monthly' | 'special',
-    work_days_per_period: '26',
-    hours_per_day: '8',
-    overtime_multiplier: '1.25',
-    rounding_mode: 'component_reconcile' as
-      'component_reconcile' | 'final_total' | 'component_only',
+    name: "",
+    payroll_frequency: "monthly" as "monthly" | "semi_monthly" | "special",
+    work_days_per_period: "26",
+    hours_per_day: "8",
+    overtime_multiplier: "1.25",
+    rounding_mode: "component_reconcile" as
+      | "component_reconcile"
+      | "final_total"
+      | "component_only",
     effective_from: new Date().toISOString().slice(0, 10),
-  })
+  });
   const [schedule, setSchedule] = useState({
-    schedule_type: 'sss' as ScheduleType,
-    calculation_type: 'percentage' as CalculationType,
-    employee_rate: '',
-    employee_amount: '',
+    schedule_type: "sss" as ScheduleType,
+    calculation_type: "percentage" as CalculationType,
+    employee_rate: "",
+    employee_amount: "",
     parameters_json: '{"brackets":[]}',
-    source_url: '',
-    source_reference: '',
+    source_url: "",
+    source_reference: "",
     effective_from: new Date().toISOString().slice(0, 10),
-    status: 'draft' as 'draft' | 'approved',
-  })
-  const [password, setPassword] = useState('')
-  const [confirmation, setConfirmation] = useState('')
-  const [message, setMessage] = useState('')
-  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
-  const [passwordBusy, setPasswordBusy] = useState(false)
+    status: "draft" as "draft" | "approved",
+  });
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [message, setMessage] = useState("");
+  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({});
+  const [passwordBusy, setPasswordBusy] = useState(false);
 
   const policyMutation = useMutation({
     mutationFn: () =>
@@ -78,22 +86,22 @@ export function AdminSettingsPage() {
         undertime_deduction: true,
       }),
     onSuccess: () => {
-      setMessage('Payroll policy saved.')
-      void queryClient.invalidateQueries({ queryKey: ['payroll-policies'] })
+      setMessage("Payroll policy saved.");
+      void queryClient.invalidateQueries({ queryKey: ["payroll-policies"] });
     },
     onError: (error) => setMessage((error as Error).message),
-  })
+  });
   const scheduleMutation = useMutation({
     mutationFn: () => {
-      let parameters: Record<string, unknown> | undefined
-      if (schedule.calculation_type === 'bracket') {
+      let parameters: Record<string, unknown> | undefined;
+      if (schedule.calculation_type === "bracket") {
         try {
           parameters = JSON.parse(schedule.parameters_json) as Record<
             string,
             unknown
-          >
+          >;
         } catch {
-          throw new Error('Bracket parameters must be valid JSON.')
+          throw new Error("Bracket parameters must be valid JSON.");
         }
       }
       return createStatutorySchedule({
@@ -101,45 +109,57 @@ export function AdminSettingsPage() {
         parameters,
         employee_rate: Number(schedule.employee_rate) || undefined,
         employee_amount: Number(schedule.employee_amount) || undefined,
-      })
+      });
     },
     onSuccess: () => {
-      setMessage('Statutory schedule saved.')
-      void queryClient.invalidateQueries({ queryKey: ['statutory-schedules'] })
+      setMessage("Statutory schedule saved.");
+      void queryClient.invalidateQueries({ queryKey: ["statutory-schedules"] });
     },
     onError: (error) => setMessage((error as Error).message),
-  })
+  });
   const statusMutation = useMutation({
     mutationFn: ({
       id,
       status,
     }: {
-      id: string
-      status: 'draft' | 'approved' | 'retired'
+      id: string;
+      status: "draft" | "approved" | "retired";
     }) => updateStatutoryScheduleStatus(id, status),
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ['statutory-schedules'] }),
+      void queryClient.invalidateQueries({ queryKey: ["statutory-schedules"] }),
     onError: (error) => setMessage((error as Error).message),
-  })
+  });
 
   async function changePassword(event: React.FormEvent) {
-    event.preventDefault()
-    const validationErrors = validatePasswordChange(password, confirmation)
-    setPasswordErrors(validationErrors)
-    if (Object.keys(validationErrors).length > 0) return
-    setPasswordBusy(true)
+    event.preventDefault();
+    const validationErrors = validatePasswordChange(password, confirmation);
+    setPasswordErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+    setPasswordBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) { setPasswordErrors({ password: error.message }); return }
-      setPassword('')
-      setConfirmation('')
-      navigate('/admin', { replace: true, state: { passwordChanged: true } })
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setPasswordErrors({ password: error.message });
+        return;
+      }
+      setPassword("");
+      setConfirmation("");
+      navigate("/admin", { replace: true, state: { passwordChanged: true } });
     } catch (error) {
-      setPasswordErrors({ password: error instanceof Error ? error.message : 'The password could not be updated.' })
-    } finally { setPasswordBusy(false) }
+      setPasswordErrors({
+        password:
+          error instanceof Error
+            ? error.message
+            : "The password could not be updated.",
+      });
+    } finally {
+      setPasswordBusy(false);
+    }
   }
 
-  function clearPasswordError(field: PasswordField) { setPasswordErrors((current) => ({ ...current, [field]: undefined })) }
+  function clearPasswordError(field: PasswordField) {
+    setPasswordErrors((current) => ({ ...current, [field]: undefined }));
+  }
 
   return (
     <div>
@@ -152,9 +172,9 @@ export function AdminSettingsPage() {
         <Alert
           className="mb-6"
           variant={
-            message.includes('saved') || message.includes('successfully')
-              ? 'default'
-              : 'danger'
+            message.includes("saved") || message.includes("successfully")
+              ? "default"
+              : "danger"
           }
         >
           {message}
@@ -168,8 +188,8 @@ export function AdminSettingsPage() {
           loading={policies.isLoading}
           saving={policyMutation.isPending}
           onSubmit={(event) => {
-            event.preventDefault()
-            policyMutation.mutate()
+            event.preventDefault();
+            policyMutation.mutate();
           }}
         />
         <ScheduleCard
@@ -179,10 +199,11 @@ export function AdminSettingsPage() {
           loading={schedules.isLoading}
           saving={scheduleMutation.isPending}
           onSubmit={(event) => {
-            event.preventDefault()
-            scheduleMutation.mutate()
+            event.preventDefault();
+            scheduleMutation.mutate();
           }}
-          onApprove={(id) => statusMutation.mutate({ id, status: 'approved' })}
+          onApprove={(id) => statusMutation.mutate({ id, status: "approved" })}
+          statusBusy={statusMutation.isPending}
         />
       </div>
       <Card className="mt-6 max-w-xl">
@@ -194,45 +215,89 @@ export function AdminSettingsPage() {
           <CardDescription>Administrator account security.</CardDescription>
         </CardHeader>
         <CardContent>
-            <form noValidate onSubmit={changePassword} className="space-y-4">
-             <div>
-               <Label htmlFor="admin-new-password">New password</Label>
-               <Input
-                 id="admin-new-password"
-                 type="password"
-                 minLength={8}
-                 value={password}
-                 onFocus={() => clearPasswordError('password')}
-                 onChange={(event) => { clearPasswordError('password'); setPassword(event.target.value) }}
-                 aria-invalid={Boolean(passwordErrors.password)}
-                 aria-describedby={passwordErrors.password ? 'admin-new-password-error' : undefined}
-                 className={passwordErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : undefined}
-                 required
-               />
-               {passwordErrors.password && <p id="admin-new-password-error" className="mt-1 text-xs font-medium text-red-600">{passwordErrors.password}</p>}
-             </div>
-             <div>
-               <Label htmlFor="admin-confirm-password">Confirm new password</Label>
-               <Input
-                 id="admin-confirm-password"
-                 type="password"
-                 minLength={8}
-                 value={confirmation}
-                 onFocus={() => clearPasswordError('confirmation')}
-                 onChange={(event) => { clearPasswordError('confirmation'); setConfirmation(event.target.value) }}
-                 aria-invalid={Boolean(passwordErrors.confirmation)}
-                 aria-describedby={passwordErrors.confirmation ? 'admin-confirm-password-error' : undefined}
-                 className={passwordErrors.confirmation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : undefined}
-                 required
-               />
-               {passwordErrors.confirmation && <p id="admin-confirm-password-error" className="mt-1 text-xs font-medium text-red-600">{passwordErrors.confirmation}</p>}
-             </div>
-             <Button type="submit" disabled={passwordBusy}>{passwordBusy ? 'Updating...' : 'Update password'}</Button>
+          <form noValidate onSubmit={changePassword} className="space-y-4">
+            <div>
+              <Label htmlFor="admin-new-password">New password</Label>
+              <Input
+                id="admin-new-password"
+                type="password"
+                minLength={8}
+                value={password}
+                onFocus={() => clearPasswordError("password")}
+                onChange={(event) => {
+                  clearPasswordError("password");
+                  setPassword(event.target.value);
+                }}
+                aria-invalid={Boolean(passwordErrors.password)}
+                aria-describedby={
+                  passwordErrors.password
+                    ? "admin-new-password-error"
+                    : undefined
+                }
+                className={
+                  passwordErrors.password
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500/15"
+                    : undefined
+                }
+                required
+              />
+              {passwordErrors.password && (
+                <p
+                  id="admin-new-password-error"
+                  className="mt-1 text-xs font-medium text-red-600"
+                >
+                  {passwordErrors.password}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="admin-confirm-password">
+                Confirm new password
+              </Label>
+              <Input
+                id="admin-confirm-password"
+                type="password"
+                minLength={8}
+                value={confirmation}
+                onFocus={() => clearPasswordError("confirmation")}
+                onChange={(event) => {
+                  clearPasswordError("confirmation");
+                  setConfirmation(event.target.value);
+                }}
+                aria-invalid={Boolean(passwordErrors.confirmation)}
+                aria-describedby={
+                  passwordErrors.confirmation
+                    ? "admin-confirm-password-error"
+                    : undefined
+                }
+                className={
+                  passwordErrors.confirmation
+                    ? "border-red-500 focus:border-red-500 focus:ring-red-500/15"
+                    : undefined
+                }
+                required
+              />
+              {passwordErrors.confirmation && (
+                <p
+                  id="admin-confirm-password-error"
+                  className="mt-1 text-xs font-medium text-red-600"
+                >
+                  {passwordErrors.confirmation}
+                </p>
+              )}
+            </div>
+              <Button
+                type="submit"
+                loading={passwordBusy}
+                loadingLabel="Updating..."
+              >
+                Update password
+              </Button>
           </form>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 function PolicyCard({
@@ -244,41 +309,42 @@ function PolicyCard({
   onSubmit,
 }: {
   policy: {
-    name: string
-    payroll_frequency: 'monthly' | 'semi_monthly' | 'special'
-    work_days_per_period: string
-    hours_per_day: string
-    overtime_multiplier: string
-    rounding_mode: 'component_reconcile' | 'final_total' | 'component_only'
-    effective_from: string
-  }
+    name: string;
+    payroll_frequency: "monthly" | "semi_monthly" | "special";
+    work_days_per_period: string;
+    hours_per_day: string;
+    overtime_multiplier: string;
+    rounding_mode: "component_reconcile" | "final_total" | "component_only";
+    effective_from: string;
+  };
   setPolicy: React.Dispatch<
     React.SetStateAction<{
-      name: string
-      payroll_frequency: 'monthly' | 'semi_monthly' | 'special'
-      work_days_per_period: string
-      hours_per_day: string
-      overtime_multiplier: string
-      rounding_mode: 'component_reconcile' | 'final_total' | 'component_only'
-      effective_from: string
+      name: string;
+      payroll_frequency: "monthly" | "semi_monthly" | "special";
+      work_days_per_period: string;
+      hours_per_day: string;
+      overtime_multiplier: string;
+      rounding_mode: "component_reconcile" | "final_total" | "component_only";
+      effective_from: string;
     }>
-  >
+  >;
   policies: Array<{
-    id: string
-    name: string
-    effective_from: string
-    is_active: boolean
-  }>
-  loading: boolean
-  saving: boolean
-  onSubmit: (event: React.FormEvent) => void
+    id: string;
+    name: string;
+    effective_from: string;
+    is_active: boolean;
+  }>;
+  loading: boolean;
+  saving: boolean;
+  onSubmit: (event: React.FormEvent) => void;
 }) {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState("");
   const visiblePolicies = policies.filter((item) =>
-    `${item.name} ${item.effective_from} ${item.is_active ? 'active' : 'inactive'}`
+    `${item.name} ${item.effective_from} ${item.is_active ? "active" : "inactive"}`
       .toLowerCase()
       .includes(search.trim().toLowerCase()),
-  )
+  );
+  const policyPagination = usePagination(visiblePolicies, search);
 
   return (
     <Card>
@@ -412,7 +478,11 @@ function PolicyCard({
               <option value="component_only">Round components only</option>
             </select>
           </div>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            loading={saving}
+            loadingLabel="Saving..."
+          >
             Save active policy
           </Button>
         </form>
@@ -432,21 +502,33 @@ function PolicyCard({
           {loading ? (
             <Skeleton className="h-10" />
           ) : visiblePolicies.length ? (
-            <div className="space-y-2">
-              {visiblePolicies.slice(0, 4).map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
-                >
-                  <span>
-                    {item.name} · {item.effective_from}
-                  </span>
-                  <Badge variant={item.is_active ? 'success' : 'muted'}>
-                    {item.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="space-y-2">
+                {policyPagination.pageItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+                  >
+                    <span>
+                      {item.name} · {item.effective_from}
+                    </span>
+                    <Badge variant={item.is_active ? "success" : "muted"}>
+                      {item.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              <ListPagination
+                total={visiblePolicies.length}
+                start={policyPagination.startIndex}
+                end={policyPagination.endIndex}
+                page={policyPagination.page}
+                pageCount={policyPagination.pageCount}
+                pageSize={policyPagination.pageSize}
+                onPageChange={policyPagination.setPage}
+                onPageSizeChange={policyPagination.setPageSize}
+              />
+            </>
           ) : policies.length ? (
             <p className="text-sm text-muted-foreground">
               No matching policies.
@@ -459,7 +541,7 @@ function PolicyCard({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function ScheduleCard({
@@ -470,48 +552,51 @@ function ScheduleCard({
   saving,
   onSubmit,
   onApprove,
+  statusBusy,
 }: {
   schedule: {
-    schedule_type: ScheduleType
-    calculation_type: CalculationType
-    employee_rate: string
-    employee_amount: string
-    parameters_json: string
-    source_url: string
-    source_reference: string
-    effective_from: string
-    status: 'draft' | 'approved'
-  }
+    schedule_type: ScheduleType;
+    calculation_type: CalculationType;
+    employee_rate: string;
+    employee_amount: string;
+    parameters_json: string;
+    source_url: string;
+    source_reference: string;
+    effective_from: string;
+    status: "draft" | "approved";
+  };
   setSchedule: React.Dispatch<
     React.SetStateAction<{
-      schedule_type: ScheduleType
-      calculation_type: CalculationType
-      employee_rate: string
-      employee_amount: string
-      parameters_json: string
-      source_url: string
-      source_reference: string
-      effective_from: string
-      status: 'draft' | 'approved'
+      schedule_type: ScheduleType;
+      calculation_type: CalculationType;
+      employee_rate: string;
+      employee_amount: string;
+      parameters_json: string;
+      source_url: string;
+      source_reference: string;
+      effective_from: string;
+      status: "draft" | "approved";
     }>
-  >
+  >;
   schedules: Array<{
-    id: string
-    schedule_type: string
-    effective_from: string
-    status: 'draft' | 'approved' | 'retired'
-  }>
-  loading: boolean
-  saving: boolean
-  onSubmit: (event: React.FormEvent) => void
-  onApprove: (id: string) => void
+    id: string;
+    schedule_type: string;
+    effective_from: string;
+    status: "draft" | "approved" | "retired";
+  }>;
+  loading: boolean;
+  saving: boolean;
+  onSubmit: (event: React.FormEvent) => void;
+  onApprove: (id: string) => void;
+  statusBusy: boolean;
 }) {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState("");
   const visibleSchedules = schedules.filter((item) =>
     `${item.schedule_type} ${item.effective_from} ${item.status}`
       .toLowerCase()
       .includes(search.trim().toLowerCase()),
-  )
+  );
+  const schedulePagination = usePagination(visibleSchedules, search);
 
   return (
     <Card>
@@ -593,7 +678,7 @@ function ScheduleCard({
               />
             </div>
           </div>
-          {schedule.calculation_type === 'bracket' && (
+          {schedule.calculation_type === "bracket" && (
             <div>
               <Label>Bracket parameters JSON</Label>
               <Input
@@ -635,7 +720,7 @@ function ScheduleCard({
                 onChange={(event) =>
                   setSchedule((current) => ({
                     ...current,
-                    status: event.target.value as 'draft' | 'approved',
+                    status: event.target.value as "draft" | "approved",
                   }))
                 }
               >
@@ -672,7 +757,11 @@ function ScheduleCard({
               required
             />
           </div>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            loading={saving}
+            loadingLabel="Saving..."
+          >
             Save schedule
           </Button>
         </form>
@@ -689,7 +778,7 @@ function ScheduleCard({
           {loading ? (
             <Skeleton className="h-10" />
           ) : visibleSchedules.length ? (
-            visibleSchedules.slice(0, 8).map((item) => (
+            schedulePagination.pageItems.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
@@ -700,20 +789,23 @@ function ScheduleCard({
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={
-                      item.status === 'approved'
-                        ? 'success'
-                        : item.status === 'draft'
-                          ? 'warning'
-                          : 'muted'
+                      item.status === "approved"
+                        ? "success"
+                        : item.status === "draft"
+                          ? "warning"
+                          : "muted"
                     }
                   >
                     {item.status}
                   </Badge>
-                  {item.status === 'draft' && (
+                  {item.status === "draft" && (
                     <Button
                       size="sm"
                       variant="outline"
+                      loading={statusBusy}
+                      loadingLabel="Approving..."
                       onClick={() => onApprove(item.id)}
+                      disabled={statusBusy}
                     >
                       <Check className="h-3.5 w-3.5" />
                       Approve
@@ -731,8 +823,20 @@ function ScheduleCard({
               No statutory schedules configured.
             </p>
           )}
+          {visibleSchedules.length > 0 && (
+            <ListPagination
+              total={visibleSchedules.length}
+              start={schedulePagination.startIndex}
+              end={schedulePagination.endIndex}
+              page={schedulePagination.page}
+              pageCount={schedulePagination.pageCount}
+              pageSize={schedulePagination.pageSize}
+              onPageChange={schedulePagination.setPage}
+              onPageSizeChange={schedulePagination.setPageSize}
+            />
+          )}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
