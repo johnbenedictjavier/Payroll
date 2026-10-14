@@ -187,6 +187,7 @@ export function PayrollPage() {
       setError("");
       void queryClient.invalidateQueries({ queryKey: ["payroll-periods"] });
       void queryClient.invalidateQueries({ queryKey: ["payroll-records"] });
+      void queryClient.invalidateQueries({ queryKey: ["report-payroll-records"] });
       queryClient.removeQueries({ queryKey: ["payroll-preview"] });
     },
     onError: (mutationError) => setError((mutationError as Error).message),
@@ -233,6 +234,19 @@ export function PayrollPage() {
       ),
     [displayedRecords],
   );
+  const rawPreviewErrorMessage =
+    preview.error instanceof Error
+      ? preview.error.message
+      : "The payroll preview could not be loaded.";
+  const previewUsesLegacyRules = /statutory schedule/i.test(
+    rawPreviewErrorMessage,
+  );
+  const previewErrorMessage = previewUsesLegacyRules
+    ? "The connected Supabase project is still using the legacy statutory-dependent payroll function. Apply the Payroll migrations through 202610140001 to use the fixed prototype rules."
+    : rawPreviewErrorMessage;
+  const previewNeedsInputs =
+    !previewUsesLegacyRules &&
+    /salary|attendance|loan|negative|employee/i.test(previewErrorMessage);
   const actionPending =
     finalizeMutation.isPending ||
     paidMutation.isPending ||
@@ -332,8 +346,13 @@ export function PayrollPage() {
       <Alert variant="warning" className="mb-6">
         <strong>Prototype payroll:</strong> regular earnings, overtime, other income, attendance deductions, employee loans, and approved other deductions are calculated. SSS, PhilHealth, Pag-IBIG, and withholding tax are not applied. Do not use this workflow for actual Philippine salary disbursement until applicable statutory deductions are implemented and validated.
       </Alert>
+      {periods.isError && (
+        <Alert variant="danger" className="mb-6">
+          {(periods.error as Error).message}
+        </Alert>
+      )}
       <div className="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-        <Card className="h-fit xl:sticky xl:top-24">
+        <Card className="h-fit print:hidden xl:sticky xl:top-24">
           <CardHeader className="gap-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -465,6 +484,11 @@ export function PayrollPage() {
               }
             >
               {error}
+            </Alert>
+          )}
+          {records.isError && (
+            <Alert variant="danger" className="mb-6">
+              {(records.error as Error).message}
             </Alert>
           )}
           {selectedPeriod ? (
@@ -633,10 +657,14 @@ export function PayrollPage() {
                 </CardHeader>
                 <CardContent>
                   {preview.isError && (
-                    <Alert variant="warning" className="mb-4">
+                    <Alert
+                      variant={previewUsesLegacyRules ? "danger" : "warning"}
+                      className="mb-4 print:hidden"
+                    >
                       <ShieldAlert className="mr-2 inline h-4 w-4" />
-                      {(preview.error as Error).message}. Complete missing
-                      salary, attendance, or loan inputs before finalization.
+                      {previewErrorMessage}
+                      {previewNeedsInputs &&
+                        " Complete missing salary, attendance, or loan inputs before finalization."}
                     </Alert>
                   )}
                   {!preview.isSuccess &&
@@ -644,7 +672,7 @@ export function PayrollPage() {
                     !["finalized", "paid", "cancelled"].includes(
                       selectedPeriod.status,
                     ) && (
-                      <Alert className="mb-4">
+                      <Alert className="mb-4 print:hidden">
                         <AlertTriangle className="mr-2 inline h-4 w-4 text-amber-600" />
                         Run a server preview before finalizing this period. The
                         preview validates every employee input.
@@ -657,7 +685,7 @@ export function PayrollPage() {
                     </div>
                   ) : visibleRecords.length ? (
                     <>
-                      <div className="hidden md:block">
+                      <div className="hidden print:hidden md:block">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -714,7 +742,7 @@ export function PayrollPage() {
                           </TableBody>
                         </Table>
                       </div>
-                      <div className="space-y-2 md:hidden">
+                      <div className="space-y-2 print:hidden md:hidden">
                         {visibleRecords.map((record) => (
                           <div
                             key={record.id}
@@ -799,20 +827,52 @@ export function PayrollPage() {
                       }
                     />
                   )}
-                  <ListPagination
-                    total={filteredRecords.length}
-                    start={recordPagination.startIndex}
-                    end={recordPagination.endIndex}
-                    page={recordPagination.page}
-                    pageCount={recordPagination.pageCount}
-                    pageSize={recordPagination.pageSize}
-                    onPageChange={recordPagination.setPage}
-                    onPageSizeChange={recordPagination.setPageSize}
-                  />
+                  <div className="print:hidden">
+                    <ListPagination
+                      total={filteredRecords.length}
+                      start={recordPagination.startIndex}
+                      end={recordPagination.endIndex}
+                      page={recordPagination.page}
+                      pageCount={recordPagination.pageCount}
+                      pageSize={recordPagination.pageSize}
+                      onPageChange={recordPagination.setPage}
+                      onPageSizeChange={recordPagination.setPageSize}
+                    />
+                  </div>
+                  <div className="hidden print:block">
+                    <table className="print-table w-full text-xs">
+                      <thead>
+                        <tr>
+                          <th>Employee</th>
+                          <th>Basic pay</th>
+                          <th>Gross</th>
+                          <th>Loan</th>
+                          <th>Deductions</th>
+                          <th>Net pay</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredRecords.map((record) => (
+                          <tr key={`print-${record.id}`}>
+                            <td>
+                              {record.employee
+                                ? `${record.employee.last_name}, ${record.employee.first_name}`
+                                : record.employee_id}
+                            </td>
+                            <td className="money">{formatCurrency(record.basic_pay)}</td>
+                            <td className="money">{formatCurrency(record.gross_pay)}</td>
+                            <td className="money">{formatCurrency(record.loan_deductions)}</td>
+                            <td className="money">{formatCurrency(record.total_deductions)}</td>
+                            <td className="money font-bold">{formatCurrency(record.net_pay)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="print:hidden">
                 <CardHeader>
                   <CardTitle>Control record</CardTitle>
                   <CardDescription>

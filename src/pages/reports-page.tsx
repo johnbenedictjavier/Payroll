@@ -261,7 +261,7 @@ export function ReportsPage() {
         />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
+        <Card className="print:hidden">
           <CardHeader>
             <CardTitle>Net pay by employee</CardTitle>
             <CardDescription>
@@ -319,7 +319,7 @@ export function ReportsPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="print:hidden">
           <CardHeader>
             <CardTitle>Finalized payroll</CardTitle>
             <CardDescription>
@@ -394,6 +394,47 @@ export function ReportsPage() {
             />
           </CardContent>
         </Card>
+      </div>
+      <div className="print-break-before hidden print:block">
+        <div className="mb-4">
+          <div className="section-kicker">Finalized payroll</div>
+          <h2 className="text-xl font-bold">Payroll ledger</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {periodId
+              ? periods.data?.find((period) => period.id === periodId)?.name
+              : "All finalized or paid periods"}
+          </p>
+        </div>
+        <table className="print-table w-full text-xs">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Period</th>
+              <th>Gross pay</th>
+              <th>Deductions</th>
+              <th>Net pay</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRecords.map((record) => (
+              <tr key={`print-${record.id}`}>
+                <td>
+                  {record.employee
+                    ? `${record.employee.last_name}, ${record.employee.first_name}`
+                    : record.employee_id}
+                </td>
+                <td>
+                  {periods.data?.find(
+                    (period) => period.id === record.payroll_period_id,
+                  )?.name ?? "Unknown period"}
+                </td>
+                <td className="money">{formatCurrency(record.gross_pay)}</td>
+                <td className="money">{formatCurrency(record.total_deductions)}</td>
+                <td className="money font-bold">{formatCurrency(record.net_pay)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -77,16 +77,8 @@ async function getPhpPdfUrl(action: string, body: Record<string, unknown>) {
   } catch {
     return null
   }
-  if (!response.ok) {
-    let message = 'The PHP PDF adapter could not generate the document.'
-    try {
-      const payload = await response.json() as { error?: unknown }
-      if (typeof payload.error === 'string') message = payload.error
-    } catch {
-      // Use the safe fallback when the adapter returns a non-JSON error.
-    }
-    throw new Error(message)
-  }
+  const contentType = response.headers.get('content-type') || ''
+  if (!response.ok || !contentType.toLowerCase().includes('application/pdf')) return null
   return URL.createObjectURL(await response.blob())
 }
 
