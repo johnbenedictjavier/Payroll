@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { usePagination } from "@/lib/use-pagination";
 import { NexMascot } from "@/components/brand/nex-mascot";
+import { ActionGroup } from "@/components/ui/action-group";
 
 export function AdminDashboardPage() {
   const { greeting, today } = useTimeContext();
@@ -98,20 +99,20 @@ export function AdminDashboardPage() {
               Review readiness, resolve missing inputs, and move approved
               payroll through its controlled stages.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <ActionGroup className="mt-5 sm:justify-start">
               <Link
                 to="/admin/payroll"
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 active:scale-[0.98]"
+                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-200 active:scale-[0.98] sm:w-auto"
               >
                 Review current period <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 to="/admin/employees/new"
-                className="inline-flex min-h-10 items-center rounded-lg border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-[0.98]"
+                className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-white/15 px-4 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-[0.98] sm:w-auto"
               >
                 Add employee
               </Link>
-            </div>
+            </ActionGroup>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.08] p-5 shadow-2xl backdrop-blur-md motion-safe:animate-float-slow">
             <div className="section-kicker text-emerald-300">

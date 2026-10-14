@@ -15,7 +15,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       type={type}
       className={cn(
-        'pressable inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+        'pressable inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 print:hidden',
         variant === 'primary' && 'action-gradient',
         variant === 'secondary' && 'bg-gradient-to-br from-secondary to-secondary/70 text-secondary-foreground shadow-sm hover:shadow-soft',
         variant === 'outline' && 'border bg-background text-foreground hover:bg-gradient-to-r hover:from-primary/5 hover:to-cyan-500/5 hover:border-primary/40',

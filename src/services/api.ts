@@ -52,6 +52,44 @@ async function functionErrorMessage(error: unknown, fallback: string) {
   return userFacingMessage(functionError.message || '', fallback)
 }
 
+const configuredPhpPdfBaseUrl = (import.meta.env.VITE_PHP_PDF_URL as string | undefined)?.trim()
+const localPhpPdfBaseUrl = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ? 'http://localhost/Payroll/Payroll2/php'
+  : ''
+const phpPdfBaseUrl = configuredPhpPdfBaseUrl || localPhpPdfBaseUrl
+
+async function getPhpPdfUrl(action: string, body: Record<string, unknown>) {
+  if (!phpPdfBaseUrl) return null
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Authentication is required to generate a PDF.')
+  let response: Response
+  try {
+    response = await fetch(`${phpPdfBaseUrl.replace(/\/+$/, '')}/pdf-export.php`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+        'X-Supabase-Key': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        'X-Supabase-Url': import.meta.env.VITE_SUPABASE_URL,
+      },
+      body: JSON.stringify({ action, ...body }),
+    })
+  } catch {
+    return null
+  }
+  if (!response.ok) {
+    let message = 'The PHP PDF adapter could not generate the document.'
+    try {
+      const payload = await response.json() as { error?: unknown }
+      if (typeof payload.error === 'string') message = payload.error
+    } catch {
+      // Use the safe fallback when the adapter returns a non-JSON error.
+    }
+    throw new Error(message)
+  }
+  return URL.createObjectURL(await response.blob())
+}
+
 export async function getProfile(userId: string) {
   const { data, error } = await supabase.from('pms_profiles').select('*').eq('id', userId).maybeSingle()
   throwIfError(error)
@@ -545,6 +583,8 @@ export async function listPayslips() {
 }
 
 export async function getPayslipUrl(payslipId: string) {
+  const phpUrl = await getPhpPdfUrl('payslip', { payslip_id: payslipId })
+  if (phpUrl) return phpUrl
   const { data, error } = await supabase.functions.invoke('payslip-download', { body: { payslip_id: payslipId } })
   if (error) throw new Error('The payslip could not be prepared.')
   if (!data?.url) throw new Error('The payslip service did not return a download link.')
@@ -557,7 +597,24 @@ export async function getStatutoryStatus() {
   return (data ?? []) as StatutoryStatus[]
 }
 
+export async function saveStatutoryReference(values: Pick<StatutoryStatus, 'schedule_type' | 'effective_from' | 'source_reference' | 'source_url'>) {
+  const { error } = await supabase.rpc('pms_upsert_statutory_reference', {
+    p_schedule_type: values.schedule_type,
+    p_effective_from: values.effective_from,
+    p_source_reference: values.source_reference,
+    p_source_url: values.source_url || null,
+  })
+  throwIfError(error)
+}
+
+export async function deleteStatutoryReference(scheduleType: StatutoryStatus['schedule_type']) {
+  const { error } = await supabase.rpc('pms_delete_statutory_reference', { p_schedule_type: scheduleType })
+  throwIfError(error)
+}
+
 export async function getPayrollReportPdfUrl(periodId?: string) {
+  const phpUrl = await getPhpPdfUrl('payroll-report', { period_id: periodId || null })
+  if (phpUrl) return phpUrl
   const { data, error } = await supabase.functions.invoke('payroll-report-pdf', { body: { period_id: periodId || null } })
   if (error) throw new Error(await functionErrorMessage(error, 'The payroll report PDF could not be prepared.'))
   if (!data?.url) throw new Error('The payroll report service did not return a download link.')
@@ -565,6 +622,8 @@ export async function getPayrollReportPdfUrl(periodId?: string) {
 }
 
 export async function getEmployeeDirectoryPdfUrl() {
+  const phpUrl = await getPhpPdfUrl('directory', {})
+  if (phpUrl) return phpUrl
   const { data, error } = await supabase.functions.invoke('employee-directory-pdf', { body: {} })
   if (error) throw new Error(await functionErrorMessage(error, 'The employee directory PDF could not be prepared.'))
   if (!data?.url) throw new Error('The employee directory service did not return a download link.')

@@ -3,6 +3,7 @@ import {
   Edit3,
   HandCoins,
   Plus,
+  Printer,
   Search,
   ShieldAlert,
   Trash2,
@@ -11,6 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -278,32 +280,33 @@ export function LoansPage() {
         eyebrow="Employee finance"
         title="Loans"
         description="Track outstanding balances and set the deduction order used during payroll finalization."
+        actions={
+          <ActionGroup>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => {
+              setError("");
+              setEditingType(null);
+              setTypeForm(emptyLoanType);
+              setTypeDialog(true);
+            }}>
+              <Plus className="h-4 w-4" />
+              Loan type
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={() => {
+              setError("");
+              setEditingLoan(null);
+              setLoanForm(emptyLoan);
+              setLoanDialog(true);
+            }}>
+              <Plus className="h-4 w-4" />
+              Employee loan
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </ActionGroup>
+        }
       />
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setError("");
-            setEditingType(null);
-            setTypeForm(emptyLoanType);
-            setTypeDialog(true);
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Loan type
-        </Button>
-        <Button
-          onClick={() => {
-            setError("");
-            setEditingLoan(null);
-            setLoanForm(emptyLoan);
-            setLoanDialog(true);
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Employee loan
-        </Button>
-      </div>
       {error && (
         <Alert variant="danger" className="mb-6">
           {error}
@@ -342,7 +345,7 @@ export function LoansPage() {
                 Catalog
               </span>
             </div>
-            <div className="relative mt-3">
+            <div className="relative mt-3 print:hidden">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-9"
@@ -404,7 +407,7 @@ export function LoansPage() {
                 payroll deduction order.
               </CardDescription>
             </div>
-            <div className="relative w-full sm:max-w-xs">
+            <div className="relative w-full print:hidden sm:max-w-xs">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-9"

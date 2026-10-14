@@ -6,6 +6,7 @@ import {
   MailWarning,
   MoreHorizontal,
   Plus,
+  Printer,
   Search,
   ShieldCheck,
   UserCheck,
@@ -19,6 +20,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -186,37 +188,45 @@ export function EmployeesPage() {
     });
   }
 
+  async function exportDirectoryPdf() {
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    try {
+      const url = await getEmployeeDirectoryPdfUrl();
+      if (popup) popup.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      popup?.close();
+      setFeedback({
+        title: "Directory PDF unavailable",
+        message: (error as Error).message,
+        variant: "danger",
+      });
+    }
+  }
+
   return (
     <div>
       <PageHeading
         eyebrow="People operations"
         title="Employees"
         description="Manage the people directory, portal access, and profile approvals from one secure workspace."
-        action={{ label: "Add employee", to: "/admin/employees/new" }}
+        actions={
+          <ActionGroup>
+            <Link to="/admin/employees/new" className="action-gradient inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold sm:w-auto">
+              <UserPlus className="h-4 w-4" />
+              Add employee
+            </Link>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => void exportDirectoryPdf()}>
+              <Download className="h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </ActionGroup>
+        }
       />
-      <div className="mb-6 flex justify-end">
-        <Button
-          variant="outline"
-          onClick={async () => {
-            const popup = window.open("", "_blank", "noopener,noreferrer");
-            try {
-              const url = await getEmployeeDirectoryPdfUrl();
-              if (popup) popup.location.href = url;
-              else window.open(url, "_blank", "noopener,noreferrer");
-            } catch (error) {
-              popup?.close();
-              setFeedback({
-                title: "Directory PDF unavailable",
-                message: (error as Error).message,
-                variant: "danger",
-              });
-            }
-          }}
-        >
-          <Download className="h-4 w-4" />
-          Export PDF
-        </Button>
-      </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <MiniMetric
           label="Active employees"
@@ -237,7 +247,7 @@ export function EmployeesPage() {
           detail="Profile requests"
         />
       </div>
-      <div className="mb-6 grid min-w-0 gap-3 rounded-xl border bg-card p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_12rem]">
+      <div className="mb-6 grid min-w-0 gap-3 rounded-xl border bg-card p-3 shadow-sm print:hidden sm:grid-cols-[minmax(0,1fr)_12rem]">
         <div className="relative min-w-0">
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -439,9 +449,10 @@ export function EmployeesPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:flex">
+                    <ActionGroup className="sm:w-auto">
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         variant="outline"
                         loading={requestMutation.isPending}
                         loadingLabel="Updating..."
@@ -457,6 +468,7 @@ export function EmployeesPage() {
                       </Button>
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         loading={requestMutation.isPending}
                         loadingLabel="Updating..."
                         onClick={() =>
@@ -469,7 +481,7 @@ export function EmployeesPage() {
                         <Check className="h-4 w-4" />
                         Approve
                       </Button>
-                    </div>
+                    </ActionGroup>
                   </div>
                 ))}
               </div>

@@ -17,6 +17,7 @@ import {
   FileDown,
   FileText,
   FileUp,
+  Printer,
   Plus,
   Save,
   Trash2,
@@ -26,6 +27,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeading } from "@/components/layout/page-heading";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -668,7 +670,7 @@ export function EmployeeProfilePage() {
               <ArrowLeft className="h-4 w-4" />
               Back to employees
             </button>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <ActionGroup className="sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -691,7 +693,7 @@ export function EmployeeProfilePage() {
               </label>
               <Button
                 type="button"
-                className="col-span-2 w-full sm:w-auto"
+                className="w-full sm:w-auto"
                 onClick={() => saveMutation.mutate()}
                 loading={saveMutation.isPending}
                 loadingLabel="Saving..."
@@ -699,7 +701,11 @@ export function EmployeeProfilePage() {
                 <Save className="h-4 w-4" />
                 Save employee
               </Button>
-            </div>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+                <Printer className="h-4 w-4" />
+                Print profile
+              </Button>
+            </ActionGroup>
           </div>
           <PageHeading
             eyebrow="People operations"

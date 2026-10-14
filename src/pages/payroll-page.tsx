@@ -8,6 +8,7 @@ import {
   FileCheck2,
   Edit3,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -17,6 +18,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { PageHeading } from "@/components/layout/page-heading";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -490,21 +492,21 @@ export function PayrollPage() {
                       {formatDate(selectedPeriod.pay_date)}
                     </CardDescription>
                   </div>
-                  <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
+                  <ActionGroup className="sm:justify-end">
                     {selectedPeriod.status === "draft" && (
                       <>
-                        <Button size="sm" variant="ghost" onClick={openEditPeriod}>
+                        <Button size="sm" className="w-full sm:w-auto" variant="ghost" onClick={openEditPeriod}>
                           <Edit3 className="h-4 w-4" />
                           Edit period
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setPeriodAction("delete")}>
+                        <Button size="sm" className="w-full sm:w-auto" variant="ghost" onClick={() => setPeriodAction("delete")}>
                           <Trash2 className="h-4 w-4" />
                           Delete
                         </Button>
                       </>
                     )}
                     {!(["finalized", "paid", "cancelled"] as PayrollPeriod["status"][]).includes(selectedPeriod.status) && (
-                      <Button size="sm" variant="ghost" onClick={() => setPeriodAction("cancel")}>
+                       <Button size="sm" className="w-full sm:w-auto" variant="ghost" onClick={() => setPeriodAction("cancel")}>
                         <Ban className="h-4 w-4" />
                         Cancel period
                       </Button>
@@ -512,6 +514,7 @@ export function PayrollPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={requestPreview}
                       loading={preview.isFetching}
                       loadingLabel="Previewing..."
@@ -527,6 +530,7 @@ export function PayrollPage() {
                     ) && (
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => setConfirmAction("finalize")}
                         disabled={actionPending || !preview.isSuccess}
                       >
@@ -537,6 +541,7 @@ export function PayrollPage() {
                     {selectedPeriod.status === "finalized" && (
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => setConfirmAction("paid")}
                         disabled={actionPending}
                       >
@@ -549,6 +554,7 @@ export function PayrollPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="w-full sm:w-auto"
                         onClick={() => setConfirmAction("publish")}
                         disabled={actionPending}
                       >
@@ -556,7 +562,7 @@ export function PayrollPage() {
                         Publish payslips
                       </Button>
                     )}
-                  </div>
+                  </ActionGroup>
                 </CardHeader>
                 <CardContent>
                   <ProcessingSteps status={selectedPeriod.status} />
@@ -596,15 +602,22 @@ export function PayrollPage() {
                       .
                     </CardDescription>
                   </div>
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate("/admin/payroll/statutory-status")}
-                    >
-                      Review statutory status
-                    </Button>
-                    <div className="relative w-full sm:w-64">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    <ActionGroup className="sm:w-auto">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={() => navigate("/admin/payroll/statutory-status")}
+                      >
+                        Review statutory status
+                      </Button>
+                      <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </ActionGroup>
+                    <div className="relative w-full print:hidden sm:w-64">
                       <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         value={recordSearch}

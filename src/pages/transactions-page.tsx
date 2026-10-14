@@ -3,6 +3,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Check,
+  Printer,
   Plus,
   ReceiptText,
   Search,
@@ -11,6 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -181,8 +183,8 @@ export function TransactionsPage() {
         title="Income and deductions"
         description="Record one-off payroll transactions, then review them before they reach the final calculation."
       />
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="grid grid-cols-2 rounded-lg border bg-card p-1 shadow-sm">
+      <div className="mb-6 flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid w-full max-w-sm grid-cols-2 rounded-lg border bg-card p-1 shadow-sm sm:w-auto">
           <button
             type="button"
             className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition ${kind === "income" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}
@@ -200,10 +202,16 @@ export function TransactionsPage() {
             Deductions
           </button>
         </div>
-        <Button className="sm:ml-auto" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Add transaction
-        </Button>
+        <ActionGroup className="sm:justify-end">
+          <Button className="w-full sm:w-auto" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Add transaction
+          </Button>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
+        </ActionGroup>
       </div>
       {error && (
         <Alert variant="danger" className="mb-6">
@@ -249,7 +257,7 @@ export function TransactionsPage() {
               Review ledger
             </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+          <div className="grid gap-3 print:hidden sm:grid-cols-[minmax(0,1fr)_12rem]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -636,20 +644,21 @@ function TransactionCard({
         </div>
       </div>
       {transaction.status === "pending" && (
-        <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3">
+        <ActionGroup className="mt-4 border-t pt-3 sm:justify-start">
           <Button
             size="sm"
+            className="w-full sm:w-auto"
             variant="outline"
             onClick={() => onAction("rejected")}
           >
             <X className="h-4 w-4" />
             Reject
           </Button>
-          <Button size="sm" onClick={() => onAction("approved")}>
+          <Button size="sm" className="w-full sm:w-auto" onClick={() => onAction("approved")}>
             <Check className="h-4 w-4" />
             Approve
           </Button>
-        </div>
+        </ActionGroup>
       )}
     </div>
   );

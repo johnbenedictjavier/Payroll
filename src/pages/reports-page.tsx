@@ -3,6 +3,7 @@ import {
   Download,
   FileBarChart,
   Filter,
+  Printer,
   Search,
   TrendingUp,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import {
 } from "recharts";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -160,7 +162,7 @@ export function ReportsPage() {
         title="Reports and analytics"
         description="Review finalized payroll records using real database transactions. Draft calculations are never presented as historical reports."
       />
-      <Card className="mb-6">
+      <Card className="mb-6 print:hidden">
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <div className="grid w-full gap-4 sm:max-w-2xl sm:grid-cols-2">
             <div>
@@ -208,7 +210,7 @@ export function ReportsPage() {
               </div>
             </div>
           </div>
-          <div className="grid gap-2 sm:flex">
+          <ActionGroup className="sm:justify-end">
             <Button
               variant="outline"
               className="w-full sm:w-auto"
@@ -228,7 +230,11 @@ export function ReportsPage() {
               <FileBarChart className="h-4 w-4" />
               Export PDF
             </Button>
-          </div>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </ActionGroup>
         </CardContent>
       </Card>
       {pdfError && <Alert variant="danger" className="mb-6">{pdfError}</Alert>}

@@ -1,14 +1,18 @@
-import { ExternalLink, FileCheck2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileCheck2, Pencil, Printer, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { ActionGroup } from "@/components/ui/action-group";
 import { PageHeading } from "@/components/layout/page-heading";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getStatutoryStatus } from "@/services/api";
 import { formatDate } from "@/lib/utils";
 
 export function StatutoryStatusPage() {
+  const navigate = useNavigate();
   const status = useQuery({
     queryKey: ["statutory-status"],
     queryFn: getStatutoryStatus,
@@ -19,7 +23,19 @@ export function StatutoryStatusPage() {
       <PageHeading
         eyebrow="Payroll controls"
         title="Statutory status"
-        description="Review whether the archived statutory reference schedules have been recorded. These records are informational only; statutory and tax deductions remain zero in payroll."
+        description="Review the four informational references required for payroll controls. Statutory and tax deductions remain zero in payroll."
+        actions={
+          <ActionGroup>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate("/admin/payroll")}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to payroll
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </ActionGroup>
+        }
       />
       <Card>
         <CardHeader>
@@ -33,7 +49,13 @@ export function StatutoryStatusPage() {
         </CardHeader>
         <CardContent>
           {status.isError && (
-            <Alert variant="danger">{(status.error as Error).message}</Alert>
+            <Alert variant="danger">
+              The reference register could not be loaded. Retry the request or open the setup screen to complete missing references.
+              <ActionGroup className="mt-3 sm:justify-start">
+                <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => void status.refetch()}>Retry</Button>
+                <Button size="sm" className="w-full sm:w-auto" onClick={() => navigate("/admin/settings/statutory-references")}>Open setup</Button>
+              </ActionGroup>
+            </Alert>
           )}
           {status.isLoading ? (
             <div className="space-y-3">
@@ -44,22 +66,25 @@ export function StatutoryStatusPage() {
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {(status.data ?? []).map((item) => (
-                <div key={item.schedule_type} className="rounded-2xl border p-4">
+              {requiredTypes.map((type) => {
+                const item = status.data?.find((reference) => reference.schedule_type === type);
+                const recorded = item?.status === "RECORDED";
+                return (
+                <div key={type} className="rounded-2xl border p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="font-semibold">{statutoryLabel(item.schedule_type)}</div>
+                      <div className="font-semibold">{statutoryLabel(type)}</div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {item.status === "RECORDED" && item.effective_from
+                        {recorded && item?.effective_from
                           ? `Recorded effective ${formatDate(item.effective_from)}`
-                          : "No archived reference recorded"}
+                          : "Missing official source reference"}
                       </div>
                     </div>
-                    <Badge variant={item.status === "RECORDED" ? "success" : "warning"}>
-                      {item.status}
+                    <Badge variant={recorded ? "success" : "warning"}>
+                      {recorded ? "RECORDED" : "NEEDED"}
                     </Badge>
                   </div>
-                  {item.status === "RECORDED" && (item.source_reference || item.source_url) && (
+                  {recorded && item && (item.source_reference || item.source_url) && (
                     <div className="mt-3 flex flex-wrap gap-3 border-t pt-3 text-xs text-muted-foreground">
                       {item.source_reference && <span>{item.source_reference}</span>}
                       {item.source_url && (
@@ -74,8 +99,15 @@ export function StatutoryStatusPage() {
                       )}
                     </div>
                   )}
+                  <ActionGroup className="mt-4 border-t pt-3 sm:justify-start">
+                    <Button size="sm" variant={recorded ? "outline" : "primary"} className="w-full sm:w-auto" onClick={() => navigate(`/admin/settings/statutory-references?type=${type}`)}>
+                      {recorded ? <Pencil className="h-4 w-4" /> : <FileCheck2 className="h-4 w-4" />}
+                      {recorded ? "Edit reference" : "Complete setup"}
+                    </Button>
+                  </ActionGroup>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <div className="mt-5 flex items-start gap-3 rounded-2xl bg-secondary/60 p-4 text-sm text-muted-foreground">
@@ -99,3 +131,5 @@ function statutoryLabel(value: string) {
         ? "PAG-IBIG"
         : "WITHHOLDING TAX";
 }
+
+const requiredTypes = ["sss", "philhealth", "pagibig", "withholding_tax"] as const;

@@ -118,7 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-          <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-card transition-all duration-300 lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
+          <aside className={cn('fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-card transition-all duration-300 print:hidden lg:flex', collapsed ? 'w-[76px]' : 'w-64')}>
           <div className={cn('border-b', collapsed ? 'px-2 py-4' : 'px-4 py-4')}>
             <div className={cn('flex items-center gap-2', collapsed ? 'flex-col' : 'justify-between')}>
               <Link to={role === 'admin' ? '/admin' : '/employee'} className={cn('flex min-w-0 flex-1 items-center gap-3', collapsed && 'justify-center')}>
@@ -136,8 +136,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-       {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 motion-safe:animate-page-in lg:hidden" onClick={() => setMobileOpen(false)} />}
-        <aside id="mobile-navigation" ref={mobileSidebarRef} aria-label="Mobile navigation" aria-hidden={!mobileOpen} inert={!mobileOpen} className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-banking transition-transform duration-300 lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
+        {mobileOpen && <div className="fixed inset-0 z-30 bg-slate-950/40 motion-safe:animate-page-in print:hidden lg:hidden" onClick={() => setMobileOpen(false)} />}
+         <aside id="mobile-navigation" ref={mobileSidebarRef} aria-label="Mobile navigation" aria-hidden={!mobileOpen} inert={!mobileOpen} className={cn('fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-card shadow-banking transition-transform duration-300 print:hidden lg:hidden', mobileOpen ? 'translate-x-0' : '-translate-x-full')}>
            <div className="flex h-20 items-center justify-between border-b px-5">
                <BrandLockup compact />
            <Button variant="ghost" size="icon" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button>
@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className={cn('min-h-screen transition-[padding] lg:pl-64', collapsed && 'lg:pl-[76px]')}>
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+           <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur print:hidden sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-controls="mobile-navigation" aria-expanded={mobileOpen} aria-label="Open navigation"><Menu className="h-5 w-5" /></Button><BrandLockup compact className="lg:hidden" /><div className="hidden text-sm text-muted-foreground lg:block">{role === 'admin' ? 'Administrator workspace' : 'Your payroll workspace'}</div></div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle theme">{darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <ConfirmationDialog open={confirmSignOut || signingOut} onClose={() => setConfirmSignOut(false)} onConfirm={() => void confirmSignOutAction()} title="Sign out?" description="Your current session will end on this device." confirmLabel="Sign out" variant="danger" loading={signingOut} />
 
-         <nav aria-label="Mobile quick navigation" className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.5)] backdrop-blur lg:hidden">
+          <nav aria-label="Mobile quick navigation" className="safe-bottom fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t bg-card/95 px-2 pt-2 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.5)] backdrop-blur print:hidden lg:hidden">
          {mobileNav.map((item) => <NavItem key={item.to} item={item} mobile />)}
           <button type="button" aria-controls="mobile-navigation" aria-expanded={mobileOpen} aria-label="Open more navigation" onClick={() => setMobileOpen(true)} className={cn('group flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-semibold transition active:scale-[0.98]', mobileMoreActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground')}><Menu className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105" /><span className="max-w-full truncate">More</span></button>
       </nav>

@@ -16,13 +16,15 @@ Modern full-stack payroll management application for the Administrator and Emplo
 3. Install dependencies with `npm install` from the repository root.
 4. Start the frontend with `npm run dev`.
 
+For local XAMPP PDF generation, set the optional `VITE_PHP_PDF_URL` value to the public URL of the repository's `php/` directory. The PHP adapter uses the TCPDF source from the Employee Management System reference project and the authenticated Supabase bearer token. Leave it unset when using the Supabase Edge Function PDF generators.
+
 The browser must only receive the Supabase publishable key. Service-role credentials are for trusted migration scripts and Supabase Edge Functions only.
 
 To export the live legacy database without exporting passwords, run `C:\xampp\php\php.exe scripts\migration\export_live.php`. The trusted Supabase importer requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` and should only be run after reviewing `migration-output/live-source.json`.
 
 ## Database
 
-Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Payroll uses built-in calculation defaults and does not require policy or statutory schedule setup.
+Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Payroll uses built-in calculation defaults and does not require policy or statutory schedules for calculation; the optional statutory reference register is informational only.
 
 ## Deployment
 

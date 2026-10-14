@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CalendarCheck2,
   CheckCircle2,
+  Printer,
   Save,
   Search,
   Trash2,
@@ -9,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -233,8 +235,16 @@ export function AttendancePage() {
         eyebrow="Payroll inputs"
         title="Attendance"
         description="Record period-specific attendance before payroll is previewed and finalized."
+        actions={
+          <ActionGroup>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print register
+            </Button>
+          </ActionGroup>
+        }
       />
-      <div className="mb-6 grid gap-3 rounded-xl border bg-card p-3 shadow-sm sm:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+      <div className="mb-6 grid gap-3 rounded-xl border bg-card p-3 shadow-sm print:hidden sm:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <div>
           <Label htmlFor="attendance-period">Payroll period</Label>
           <select
@@ -319,7 +329,7 @@ export function AttendancePage() {
                   days, minutes, and hours.
                 </CardDescription>
               </div>
-              <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
                 <Badge variant={isLocked ? "muted" : "warning"}>
                   {isLocked ? "Locked inputs" : "Draft inputs"}
                 </Badge>
@@ -508,6 +518,7 @@ function AttendanceTable({
                 <div className="flex justify-end gap-2">
                   <Button
                     size="sm"
+                    className="w-full sm:w-auto"
                     variant={dirtyRows.has(employee.id) ? "primary" : "outline"}
                     loading={busy && dirtyRows.has(employee.id)}
                     loadingLabel="Saving..."
@@ -630,8 +641,9 @@ function AttendanceCard({
           />
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <ActionGroup className="mt-4 sm:justify-start">
         <Button
+          className="w-full sm:w-auto"
           variant={dirty ? "primary" : "outline"}
           loading={busy && dirty}
           loadingLabel="Saving..."
@@ -642,6 +654,7 @@ function AttendanceCard({
           {dirty ? "Save attendance" : "Attendance saved"}
         </Button>
         <Button
+          className="w-full sm:w-auto"
           variant="ghost"
           onClick={() => clearOne(employee.id)}
           disabled={locked || busy}
@@ -649,7 +662,7 @@ function AttendanceCard({
           <Trash2 className="h-4 w-4" />
           Clear
         </Button>
-      </div>
+      </ActionGroup>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LockKeyhole } from "lucide-react";
+import { FileCheck2, LockKeyhole } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeading } from "@/components/layout/page-heading";
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,7 @@ export function AdminSettingsPage() {
         <CardHeader>
           <CardTitle>Payroll calculation</CardTitle>
           <CardDescription>
-            No payroll policy or statutory schedule setup is required.
+            Fixed payroll rules do not require calculation schedules. Informational statutory references can be recorded separately.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
@@ -93,6 +93,15 @@ export function AdminSettingsPage() {
           <div className="rounded-lg border p-3 sm:col-span-2">
             <div className="text-xs text-muted-foreground">Statutory and tax</div>
             <div className="font-semibold">Not deducted</div>
+          </div>
+          <div className="flex flex-col gap-3 border-t pt-4 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>Complete the informational source register when a statutory reference is needed for review.</span>
+            </div>
+            <Button variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => navigate("/admin/settings/statutory-references")}>
+              Open statutory references
+            </Button>
           </div>
         </CardContent>
       </Card>

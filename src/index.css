@@ -92,4 +92,14 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
   }
+  @media print {
+    @page { margin: 12mm; }
+    html, body { background: #fff !important; color: #111827 !important; }
+    .motion-card, .banking-card, .shadow-sm, .shadow-banking, .shadow-lift { box-shadow: none !important; }
+    .rounded-xl, .rounded-2xl { border-radius: 0 !important; }
+    .bg-card { background: #fff !important; }
+    .text-muted-foreground { color: #4b5563 !important; }
+    .print-break-before { break-before: page; }
+    .print-avoid-break { break-inside: avoid; }
+  }
 }

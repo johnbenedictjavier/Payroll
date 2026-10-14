@@ -3,6 +3,7 @@ import {
   CalendarRange,
   Check,
   CircleDollarSign,
+  Printer,
   Plus,
   Search,
   ShieldCheck,
@@ -10,6 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
 import { EmployeeAvatar } from "@/components/profile/employee-avatar";
+import { ActionGroup } from "@/components/ui/action-group";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -161,19 +163,23 @@ export function SalariesPage() {
         eyebrow="Compensation"
         title="Salary configuration"
         description="Manage effective-dated compensation and keep approved salary records ready for payroll."
+        actions={
+          <ActionGroup>
+            <Button className="w-full sm:w-auto" onClick={() => {
+              setError("");
+              setForm(blank);
+              setOpen(true);
+            }}>
+              <Plus className="h-4 w-4" />
+              Add salary configuration
+            </Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </ActionGroup>
+        }
       />
-      <div className="mb-6 flex flex-wrap gap-3">
-        <Button
-          onClick={() => {
-            setError("");
-            setForm(blank);
-            setOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Add salary configuration
-        </Button>
-      </div>
       {error && (
         <Alert variant="danger" className="mb-6">
           {error}
@@ -216,7 +222,7 @@ export function SalariesPage() {
               Compensation ledger
             </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+          <div className="grid gap-3 print:hidden sm:grid-cols-[minmax(0,1fr)_12rem]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
