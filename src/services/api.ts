@@ -443,37 +443,6 @@ export async function publishPayslips(periodId: string) {
   return data as number
 }
 
-export async function listPayrollPolicies() {
-  const { data, error } = await supabase.from('pms_payroll_policies').select('*').order('effective_from', { ascending: false })
-  throwIfError(error)
-  return data ?? []
-}
-
-export async function createPayrollPolicy(values: { name: string; payroll_frequency: 'monthly' | 'semi_monthly' | 'special'; work_days_per_period: number; hours_per_day: number; overtime_multiplier: number; tardiness_deduction: boolean; undertime_deduction: boolean; rounding_mode: 'component_reconcile' | 'final_total' | 'component_only'; effective_from: string; effective_to?: string }) {
-  const { data, error } = await supabase.from('pms_payroll_policies').insert({ ...values, effective_to: values.effective_to || null, is_active: true }).select().single()
-  throwIfError(error)
-  return data
-}
-
-export async function listStatutorySchedules() {
-  const { data, error } = await supabase.from('pms_statutory_rate_schedules').select('*').order('effective_from', { ascending: false })
-  throwIfError(error)
-  return data ?? []
-}
-
-export async function createStatutorySchedule(values: { schedule_type: 'sss' | 'philhealth' | 'pagibig' | 'withholding_tax'; calculation_type: 'percentage' | 'fixed' | 'bracket'; employee_rate?: number; employee_amount?: number; parameters?: Record<string, unknown>; source_url?: string; source_reference?: string; effective_from: string; effective_to?: string; status: 'draft' | 'approved' }) {
-  const parameters = values.calculation_type === 'percentage' ? { employee_rate: values.employee_rate ?? 0 } : values.calculation_type === 'fixed' ? { employee_amount: values.employee_amount ?? 0 } : (values.parameters ?? {})
-  const { data, error } = await supabase.from('pms_statutory_rate_schedules').insert({ schedule_type: values.schedule_type, calculation_type: values.calculation_type, parameters, source_url: values.source_url || null, source_reference: values.source_reference || null, effective_from: values.effective_from, effective_to: values.effective_to || null, status: values.status }).select().single()
-  throwIfError(error)
-  return data
-}
-
-export async function updateStatutoryScheduleStatus(id: string, status: 'draft' | 'approved' | 'retired') {
-  const { data, error } = await supabase.from('pms_statutory_rate_schedules').update({ status }).eq('id', id).select().single()
-  throwIfError(error)
-  return data
-}
-
 export async function listProfileChangeRequests(status?: string) {
   let query = supabase.from('pms_profile_change_requests').select('*, employee:pms_employees(id,employee_number,first_name,last_name)').order('created_at', { ascending: false })
   if (status) query = query.eq('status', status)

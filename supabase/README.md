@@ -2,7 +2,7 @@
 
 ## Apply migrations
 
-Apply the migrations in order to the selected Supabase project using the Supabase CLI or SQL editor. `202610110001_initial_schema.sql` creates the canonical schema, RLS policies, private Storage buckets, audit triggers, payroll functions, and payslip publication workflow. `202610110002_employee_management.sql` adds full employee-profile saving, automatic employee numbers, private DOCX retention, and first-login password controls. `202610110003_employee_number_rules.sql` makes employee numbers immutable after creation. `202610110004_repair_updated_at_columns.sql` repairs pre-existing PMS tables so profile updates can run their timestamp triggers safely. `202610130001_fix_preview_payroll_ambiguous_columns.sql` qualifies payroll preview source columns so finalization is not blocked by ambiguous output names.
+Apply the migrations in order to the selected Supabase project using the Supabase CLI or SQL editor. `202610110001_initial_schema.sql` creates the canonical schema, RLS policies, private Storage buckets, audit triggers, payroll functions, and payslip publication workflow. `202610110002_employee_management.sql` adds full employee-profile saving, automatic employee numbers, private DOCX retention, and first-login password controls. `202610110003_employee_number_rules.sql` makes employee numbers immutable after creation. `202610110004_repair_updated_at_columns.sql` repairs pre-existing PMS tables so profile updates can run their timestamp triggers safely. `202610130001_fix_preview_payroll_ambiguous_columns.sql` qualifies payroll preview source columns so finalization is not blocked by ambiguous output names. `202610140001_remove_payroll_configuration.sql` replaces configurable payroll inputs with fixed defaults and retires the old policy and statutory tables as protected legacy archives.
 
 The shared Supabase project has unrelated pre-existing student-system migration history. Those migrations are intentionally not included in this Payroll application's `supabase/migrations/` directory and are not referenced by Payroll. Do not remove the existing remote student objects unless the student system is being retired.
 
@@ -12,11 +12,9 @@ Because those remote history entries are intentionally absent locally, a future 
 
 1. Create or import administrator Auth accounts with verified email addresses.
 2. Insert matching `pms_user_roles` rows with the `admin` role using a trusted operation.
-3. Configure an active `pms_payroll_policies` row through the administrator portal.
-4. Add approved SSS, PhilHealth, Pag-IBIG, and withholding-tax schedules to `pms_statutory_rate_schedules` using official source references.
-5. Review imported employees, emails, assignments, salaries, and profile images.
+3. Review imported employees, emails, assignments, salaries, and profile images.
 
-No statutory rate is embedded in the migration. Payroll preview intentionally refuses to run until all four approved schedule types are configured for the payroll period.
+Payroll uses 26 work days per period, 8 hours per day, and a 1.25 overtime multiplier. Monthly salaries deduct absence, tardiness, and undertime; daily and hourly salaries use days worked. Statutory contributions and withholding tax are not deducted.
 
 ## Bootstrap the first administrator
 

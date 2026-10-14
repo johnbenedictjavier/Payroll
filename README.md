@@ -22,7 +22,7 @@ To export the live legacy database without exporting passwords, run `C:\xampp\ph
 
 ## Database
 
-Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Review the statutory schedule seed data before activating it for production payroll.
+Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Payroll uses built-in calculation defaults and does not require policy or statutory schedule setup.
 
 ## Deployment
 
