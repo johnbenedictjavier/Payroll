@@ -386,7 +386,12 @@ begin
        where loan.employee_id = preview_row.employee_id and loan.status = 'active' and loan.priority is not null and loan.outstanding_balance > 0;
     update public.pms_employee_loans loan set
       outstanding_balance = greatest(0, loan.outstanding_balance - least(loan.installment_amount, loan.outstanding_balance)),
-      status = case when loan.outstanding_balance - least(loan.installment_amount, loan.outstanding_balance) <= 0 then 'completed' else 'active' end
+      status = (
+        case when loan.outstanding_balance - least(loan.installment_amount, loan.outstanding_balance) <= 0
+          then 'completed'
+          else 'active'
+        end
+      )::public.pms_loan_status
      where loan.employee_id = preview_row.employee_id and loan.status = 'active' and loan.priority is not null and loan.outstanding_balance > 0;
   end loop;
   insert into public.pms_employee_payslips (employee_id, payroll_record_id)
