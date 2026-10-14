@@ -17,6 +17,7 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeading } from "@/components/layout/page-heading";
+import { EmployeeAvatar } from "@/components/profile/employee-avatar";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ListPagination } from "@/components/ui/list-pagination";
-import { listPayrollPeriods, listPayrollRecords } from "@/services/api";
+import {
+  getPayrollReportPdfUrl,
+  listPayrollPeriods,
+  listPayrollRecords,
+} from "@/services/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { PayrollRecord } from "@/types/database";
 import { usePagination } from "@/lib/use-pagination";
@@ -50,6 +55,8 @@ export function ReportsPage() {
   });
   const [periodId, setPeriodId] = useState("");
   const [employeeSearch, setEmployeeSearch] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState("");
   const records = useQuery({
     queryKey: ["report-payroll-records", periodId],
     queryFn: () => listPayrollRecords(periodId || undefined),
@@ -130,6 +137,22 @@ export function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function exportPdf() {
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    setPdfBusy(true);
+    setPdfError("");
+    try {
+      const url = await getPayrollReportPdfUrl(periodId || undefined);
+      if (popup) popup.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      popup?.close();
+      setPdfError((error as Error).message);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
   return (
     <div>
       <PageHeading
@@ -185,17 +208,30 @@ export function ReportsPage() {
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={exportCsv}
-            disabled={!visibleRecords.length}
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
+          <div className="grid gap-2 sm:flex">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={exportCsv}
+              disabled={!visibleRecords.length}
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => void exportPdf()}
+              loading={pdfBusy}
+              loadingLabel="Preparing PDF..."
+              disabled={!filteredRecords.length || pdfBusy}
+            >
+              <FileBarChart className="h-4 w-4" />
+              Export PDF
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      {pdfError && <Alert variant="danger" className="mb-6">{pdfError}</Alert>}
       {records.isError && (
         <Alert variant="danger" className="mb-6">
           {(records.error as Error).message}
@@ -367,13 +403,22 @@ function ReportRow({
   return (
     <TableRow>
       <TableCell>
-        <div className="font-semibold">
-          {record.employee
-            ? `${record.employee.last_name}, ${record.employee.first_name}`
-            : "Employee"}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {record.employee?.employee_number}
+        <div className="flex items-center gap-3">
+          <EmployeeAvatar
+            photoPath={record.employee?.photo_path}
+            name={record.employee ? `${record.employee.first_name} ${record.employee.last_name}` : "Employee"}
+            className="h-9 w-9 text-[10px]"
+          />
+          <div>
+            <div className="font-semibold">
+              {record.employee
+                ? `${record.employee.last_name}, ${record.employee.first_name}`
+                : "Employee"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {record.employee?.employee_number}
+            </div>
+          </div>
         </div>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">
@@ -397,6 +442,11 @@ function ReportCard({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border p-4">
+      <EmployeeAvatar
+        photoPath={record.employee?.photo_path}
+        name={record.employee ? `${record.employee.first_name} ${record.employee.last_name}` : "Employee"}
+        className="h-9 w-9 text-[10px]"
+      />
       <div className="min-w-0 flex-1">
         <div className="truncate font-semibold">
           {record.employee

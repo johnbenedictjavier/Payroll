@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  Download,
   FileText,
   MailWarning,
   MoreHorizontal,
@@ -17,6 +18,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
+import { EmployeeAvatar } from "@/components/profile/employee-avatar";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,7 +45,7 @@ import {
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
   DuplicateEmployeeEmailError,
-  getEmployeePhotoUrl,
+  getEmployeeDirectoryPdfUrl,
   listEmployees,
   listProfileChangeRequests,
   provisionEmployeeAccount,
@@ -70,7 +72,7 @@ export function EmployeesPage() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const employees = useQuery({
     queryKey: ["employees", search],
-    queryFn: () => listEmployees(search),
+    queryFn: () => listEmployees(search, { excludeAdmins: true }),
   });
   const requests = useQuery({
     queryKey: ["profile-change-requests"],
@@ -192,6 +194,29 @@ export function EmployeesPage() {
         description="Manage the people directory, portal access, and profile approvals from one secure workspace."
         action={{ label: "Add employee", to: "/admin/employees/new" }}
       />
+      <div className="mb-6 flex justify-end">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            const popup = window.open("", "_blank", "noopener,noreferrer");
+            try {
+              const url = await getEmployeeDirectoryPdfUrl();
+              if (popup) popup.location.href = url;
+              else window.open(url, "_blank", "noopener,noreferrer");
+            } catch (error) {
+              popup?.close();
+              setFeedback({
+                title: "Directory PDF unavailable",
+                message: (error as Error).message,
+                variant: "danger",
+              });
+            }
+          }}
+        >
+          <Download className="h-4 w-4" />
+          Export PDF
+        </Button>
+      </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <MiniMetric
           label="Active employees"
@@ -391,21 +416,28 @@ export function EmployeesPage() {
                     key={request.id}
                     className="data-row-in flex flex-col gap-4 rounded-lg border p-4 lg:flex-row lg:items-center lg:justify-between"
                   >
-                    <div className="min-w-0">
-                      <div className="font-semibold">
-                        {request.employee
-                          ? `${request.employee.first_name} ${request.employee.last_name}`
-                          : "Employee request"}
+                    <div className="flex min-w-0 items-start gap-3">
+                      <EmployeeAvatar
+                        photoPath={request.employee?.photo_path}
+                        name={request.employee ? `${request.employee.first_name} ${request.employee.last_name}` : "Employee request"}
+                        className="h-10 w-10 text-xs"
+                      />
+                      <div className="min-w-0">
+                        <div className="font-semibold">
+                          {request.employee
+                            ? `${request.employee.first_name} ${request.employee.last_name}`
+                            : "Employee request"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Submitted {formatDate(request.created_at.slice(0, 10))}{" "}
+                          ·{" "}
+                          {Object.keys(request.requested_changes).join(", ") ||
+                            "Profile information"}
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {request.reason || "No reason provided."}
+                        </p>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Submitted {formatDate(request.created_at.slice(0, 10))}{" "}
-                        ·{" "}
-                        {Object.keys(request.requested_changes).join(", ") ||
-                          "Profile information"}
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {request.reason || "No reason provided."}
-                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:flex">
                       <Button
@@ -531,7 +563,11 @@ function EmployeeRow({
           to={`/admin/employees/${employee.id}`}
           className="flex items-center gap-3"
         >
-          <Avatar employee={employee} />
+          <EmployeeAvatar
+            photoPath={employee.photo_path}
+            name={`${employee.first_name} ${employee.last_name}`}
+            className="h-10 w-10 text-xs"
+          />
           <div>
             <div className="font-semibold hover:text-primary">
               {employee.last_name}, {employee.first_name}
@@ -601,7 +637,11 @@ function EmployeeCard({
           to={`/admin/employees/${employee.id}`}
           className="flex items-center gap-3"
         >
-          <Avatar employee={employee} />
+          <EmployeeAvatar
+            photoPath={employee.photo_path}
+            name={`${employee.first_name} ${employee.last_name}`}
+            className="h-10 w-10 text-xs"
+          />
           <div>
             <div className="font-semibold">
               {employee.first_name} {employee.last_name}
@@ -856,34 +896,4 @@ function statusVariant(status: Employee["status"]) {
       : status === "terminated"
         ? "danger"
         : "warning";
-}
-
-function Avatar({ employee }: { employee: Employee }) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    if (!employee.photo_path) setPhotoUrl(null);
-    else if (employee.photo_path.startsWith("http"))
-      setPhotoUrl(employee.photo_path);
-    else
-      void getEmployeePhotoUrl(employee.photo_path)
-        .then((url) => {
-          if (active) setPhotoUrl(url);
-        })
-        .catch(() => {
-          if (active) setPhotoUrl(null);
-        });
-    return () => {
-      active = false;
-    };
-  }, [employee.photo_path]);
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-bold text-primary">
-      {photoUrl ? (
-        <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        `${employee.first_name[0] ?? ""}${employee.last_name[0] ?? ""}`
-      )}
-    </div>
-  );
 }

@@ -24,6 +24,7 @@ import type {
   Profile,
   ProfileChangeRequest,
   SalaryHistory,
+  StatutoryStatus,
 } from '@/types/database'
 
 function userFacingMessage(message: string, fallback: string) {
@@ -73,7 +74,7 @@ export async function getLinkedEmployee(userId: string) {
   return data as Employee | null
 }
 
-export async function listEmployees(search = '') {
+export async function listEmployees(search = '', options: { excludeAdmins?: boolean } = {}) {
   let query = supabase
     .from('pms_employees')
     .select('*, department:pms_departments(id,name), position:pms_positions(id,name)')
@@ -84,6 +85,13 @@ export async function listEmployees(search = '') {
   }
   const { data, error } = await query
   throwIfError(error)
+  let visibleData = data ?? []
+  if (options.excludeAdmins) {
+    const { data: adminRows, error: adminError } = await supabase.from('pms_user_roles').select('user_id').eq('role', 'admin')
+    throwIfError(adminError)
+    const adminIds = new Set((adminRows ?? []).map((row) => row.user_id as string))
+    visibleData = visibleData.filter((employee) => !employee.auth_user_id || !adminIds.has(employee.auth_user_id))
+  }
   const { data: emailRows, error: duplicateError } = await supabase.from('pms_employees').select('id,email').not('email', 'is', null)
   throwIfError(duplicateError)
   const emailCounts = new Map<string, number>()
@@ -91,7 +99,7 @@ export async function listEmployees(search = '') {
     const email = typeof row.email === 'string' ? row.email.trim().toLowerCase() : ''
     if (email) emailCounts.set(email, (emailCounts.get(email) ?? 0) + 1)
   }
-  return (data ?? []).map((employee) => ({ ...employee, email_duplicate: Boolean(employee.email && (emailCounts.get(employee.email.trim().toLowerCase()) ?? 0) > 1) })) as Employee[]
+  return visibleData.map((employee) => ({ ...employee, email_duplicate: Boolean(employee.email && (emailCounts.get(employee.email.trim().toLowerCase()) ?? 0) > 1) })) as Employee[]
 }
 
 export async function createEmployee(values: Partial<Employee> & { employee_number: string; first_name: string; last_name: string; department_id?: string; position_id?: string }) {
@@ -275,7 +283,7 @@ export async function getSalaryHistory(employeeId: string) {
 }
 
 export async function listSalaryHistory() {
-  const { data, error } = await supabase.from('pms_employee_salary_history').select('*, employee:pms_employees(id,employee_number,first_name,last_name), assignment:pms_employee_assignments(id,position:pms_positions(id,name),department:pms_departments(id,name))').order('effective_from', { ascending: false })
+  const { data, error } = await supabase.from('pms_employee_salary_history').select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path), assignment:pms_employee_assignments(id,position:pms_positions(id,name),department:pms_departments(id,name))').order('effective_from', { ascending: false })
   throwIfError(error)
   return data ?? []
 }
@@ -338,6 +346,22 @@ export async function listPayrollPeriods() {
   return (data ?? []) as PayrollPeriod[]
 }
 
+export async function updatePayrollPeriod(id: string, values: Pick<PayrollPeriod, 'name' | 'start_date' | 'end_date' | 'pay_date' | 'frequency'>) {
+  const { data, error } = await supabase.rpc('pms_update_payroll_period', { p_period_id: id, p_values: values })
+  throwIfError(error)
+  return data as PayrollPeriod
+}
+
+export async function deletePayrollPeriod(id: string) {
+  const { error } = await supabase.rpc('pms_delete_payroll_period', { p_period_id: id })
+  throwIfError(error)
+}
+
+export async function cancelPayrollPeriod(id: string) {
+  const { error } = await supabase.rpc('pms_cancel_payroll_period', { p_period_id: id })
+  throwIfError(error)
+}
+
 export async function createPayrollPeriod(values: Pick<PayrollPeriod, 'name' | 'start_date' | 'end_date' | 'pay_date' | 'frequency'>) {
   const { data, error } = await supabase.from('pms_payroll_periods').insert({ ...values, status: 'draft' }).select().single()
   throwIfError(error)
@@ -345,7 +369,7 @@ export async function createPayrollPeriod(values: Pick<PayrollPeriod, 'name' | '
 }
 
 export async function listAttendance(periodId?: string) {
-  let query = supabase.from('pms_employee_attendance').select('*, employee:pms_employees(id,employee_number,first_name,last_name)').order('created_at', { ascending: false })
+  let query = supabase.from('pms_employee_attendance').select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path)').order('created_at', { ascending: false })
   if (periodId) query = query.eq('payroll_period_id', periodId)
   const { data, error } = await query
   throwIfError(error)
@@ -353,15 +377,40 @@ export async function listAttendance(periodId?: string) {
 }
 
 export async function saveAttendance(values: Omit<Attendance, 'id' | 'created_at' | 'updated_at' | 'employee'>) {
-  const { data, error } = await supabase.from('pms_employee_attendance').upsert(values, { onConflict: 'payroll_period_id,employee_id' }).select('*, employee:pms_employees(id,employee_number,first_name,last_name)').single()
+  const { data, error } = await supabase.rpc('pms_upsert_attendance', {
+    p_payroll_period_id: values.payroll_period_id,
+    p_employee_id: values.employee_id,
+    p_days_worked: values.days_worked,
+    p_absence_days: values.absence_days,
+    p_tardiness_minutes: values.tardiness_minutes,
+    p_undertime_minutes: values.undertime_minutes,
+    p_overtime_hours: values.overtime_hours,
+    p_notes: values.notes,
+  })
   throwIfError(error)
   return data as Attendance
+}
+
+export async function deleteAttendance(id: string) {
+  const { error } = await supabase.rpc('pms_delete_attendance', { p_attendance_id: id })
+  throwIfError(error)
 }
 
 export async function listLoanTypes() {
   const { data, error } = await supabase.from('pms_loan_types').select('*').order('name')
   throwIfError(error)
   return (data ?? []) as LoanType[]
+}
+
+export async function updateLoanType(id: string, values: { name: string; description?: string; default_terms?: number; is_active?: boolean }) {
+  const { data, error } = await supabase.rpc('pms_update_loan_type', { p_loan_type_id: id, p_values: values })
+  throwIfError(error)
+  return data as LoanType
+}
+
+export async function deleteLoanType(id: string) {
+  const { error } = await supabase.rpc('pms_delete_loan_type', { p_loan_type_id: id })
+  throwIfError(error)
 }
 
 export async function createLoanType(values: { name: string; description?: string; default_terms?: number }) {
@@ -371,26 +420,37 @@ export async function createLoanType(values: { name: string; description?: strin
 }
 
 export async function listEmployeeLoans() {
-  const { data, error } = await supabase.from('pms_employee_loans').select('*, employee:pms_employees(id,employee_number,first_name,last_name), loan_type:pms_loan_types(id,name)').order('loan_date', { ascending: false })
+  const { data, error } = await supabase.from('pms_employee_loans').select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path), loan_type:pms_loan_types(id,name)').order('loan_date', { ascending: false })
   throwIfError(error)
   return (data ?? []) as EmployeeLoan[]
 }
 
 export async function createEmployeeLoan(values: Omit<EmployeeLoan, 'id' | 'outstanding_balance' | 'status' | 'employee' | 'loan_type'>) {
-  const { data, error } = await supabase.from('pms_employee_loans').insert({ ...values, outstanding_balance: values.principal_amount, status: 'active' }).select('*, employee:pms_employees(id,employee_number,first_name,last_name), loan_type:pms_loan_types(id,name)').single()
+  const { data, error } = await supabase.from('pms_employee_loans').insert({ ...values, outstanding_balance: values.principal_amount, status: 'active' }).select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path), loan_type:pms_loan_types(id,name)').single()
   throwIfError(error)
   return data as EmployeeLoan
 }
 
 export async function updateLoanPriority(id: string, priority: number | null) {
-  const { data, error } = await supabase.from('pms_employee_loans').update({ priority }).eq('id', id).select('*, employee:pms_employees(id,employee_number,first_name,last_name), loan_type:pms_loan_types(id,name)').single()
+  const { data, error } = await supabase.rpc('pms_update_employee_loan', { p_loan_id: id, p_values: { priority } })
   throwIfError(error)
   return data as EmployeeLoan
 }
 
+export async function updateEmployeeLoan(id: string, values: Record<string, unknown>) {
+  const { data, error } = await supabase.rpc('pms_update_employee_loan', { p_loan_id: id, p_values: values })
+  throwIfError(error)
+  return data as EmployeeLoan
+}
+
+export async function deleteEmployeeLoan(id: string) {
+  const { error } = await supabase.rpc('pms_delete_employee_loan', { p_loan_id: id })
+  throwIfError(error)
+}
+
 export async function listOtherTransactions(kind: 'income' | 'deduction', periodId?: string) {
   const table = kind === 'income' ? 'pms_other_income' : 'pms_other_deductions'
-  let query = supabase.from(table).select('*, employee:pms_employees(id,employee_number,first_name,last_name)').order('created_at', { ascending: false })
+  let query = supabase.from(table).select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path)').order('created_at', { ascending: false })
   if (periodId) query = query.eq('payroll_period_id', periodId)
   const { data, error } = await query
   throwIfError(error)
@@ -412,7 +472,7 @@ export async function updateOtherTransactionStatus(kind: 'income' | 'deduction',
 }
 
 export async function listPayrollRecords(periodId?: string) {
-  let query = supabase.from('pms_payroll_records').select('*, employee:pms_employees(id,employee_number,first_name,last_name)').order('created_at', { ascending: false })
+  let query = supabase.from('pms_payroll_records').select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path)').order('created_at', { ascending: false })
   if (periodId) query = query.eq('payroll_period_id', periodId)
   const { data, error } = await query
   throwIfError(error)
@@ -422,7 +482,16 @@ export async function listPayrollRecords(periodId?: string) {
 export async function previewPayroll(periodId: string) {
   const { data, error } = await supabase.rpc('pms_preview_payroll', { p_payroll_period_id: periodId })
   throwIfError(error)
-  return data as PayrollRecord[]
+  const records = (data ?? []) as PayrollRecord[]
+  const employeeIds = [...new Set(records.map((record) => record.employee_id))]
+  if (!employeeIds.length) return records
+  const { data: employees, error: employeeError } = await supabase
+    .from('pms_employees')
+    .select('id,employee_number,first_name,last_name,photo_path')
+    .in('id', employeeIds)
+  throwIfError(employeeError)
+  const employeeById = new Map((employees ?? []).map((employee) => [employee.id, employee]))
+  return records.map((record) => ({ ...record, employee: employeeById.get(record.employee_id) })) as PayrollRecord[]
 }
 
 export async function finalizePayroll(periodId: string, idempotencyKey: string) {
@@ -444,7 +513,7 @@ export async function publishPayslips(periodId: string) {
 }
 
 export async function listProfileChangeRequests(status?: string) {
-  let query = supabase.from('pms_profile_change_requests').select('*, employee:pms_employees(id,employee_number,first_name,last_name)').order('created_at', { ascending: false })
+  let query = supabase.from('pms_profile_change_requests').select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path)').order('created_at', { ascending: false })
   if (status) query = query.eq('status', status)
   const { data, error } = await query
   throwIfError(error)
@@ -479,6 +548,26 @@ export async function getPayslipUrl(payslipId: string) {
   const { data, error } = await supabase.functions.invoke('payslip-download', { body: { payslip_id: payslipId } })
   if (error) throw new Error('The payslip could not be prepared.')
   if (!data?.url) throw new Error('The payslip service did not return a download link.')
+  return data.url as string
+}
+
+export async function getStatutoryStatus() {
+  const { data, error } = await supabase.rpc('pms_statutory_status')
+  throwIfError(error)
+  return (data ?? []) as StatutoryStatus[]
+}
+
+export async function getPayrollReportPdfUrl(periodId?: string) {
+  const { data, error } = await supabase.functions.invoke('payroll-report-pdf', { body: { period_id: periodId || null } })
+  if (error) throw new Error(await functionErrorMessage(error, 'The payroll report PDF could not be prepared.'))
+  if (!data?.url) throw new Error('The payroll report service did not return a download link.')
+  return data.url as string
+}
+
+export async function getEmployeeDirectoryPdfUrl() {
+  const { data, error } = await supabase.functions.invoke('employee-directory-pdf', { body: {} })
+  if (error) throw new Error(await functionErrorMessage(error, 'The employee directory PDF could not be prepared.'))
+  if (!data?.url) throw new Error('The employee directory service did not return a download link.')
   return data.url as string
 }
 

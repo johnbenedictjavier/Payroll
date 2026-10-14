@@ -8,3 +8,9 @@ verify_jwt = true
 
 [functions.payslip-download]
 verify_jwt = true
+
+[functions.payroll-report-pdf]
+verify_jwt = true
+
+[functions.employee-directory-pdf]
+verify_jwt = true

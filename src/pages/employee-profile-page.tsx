@@ -120,6 +120,29 @@ type FormState = {
   salary_history: SalaryForm[];
 };
 
+type EmployeeProfileTab =
+  | "personal"
+  | "identifiers"
+  | "emergency"
+  | "dependents"
+  | "education"
+  | "references"
+  | "assignment"
+  | "salary"
+  | "documents";
+
+const profileTabs: Array<{ id: EmployeeProfileTab; label: string }> = [
+  { id: "personal", label: "PERSONAL" },
+  { id: "identifiers", label: "IDENTIFIERS" },
+  { id: "emergency", label: "EMERGENCY" },
+  { id: "dependents", label: "DEPENDENTS" },
+  { id: "education", label: "EDUCATION" },
+  { id: "references", label: "REFERENCES" },
+  { id: "assignment", label: "ASSIGNMENT" },
+  { id: "salary", label: "SALARY" },
+  { id: "documents", label: "DOCUMENTS" },
+];
+
 const today = () => new Date().toISOString().slice(0, 10);
 const blankAssignment = (): AssignmentForm => ({
   department_id: "",
@@ -310,6 +333,7 @@ export function EmployeeProfilePage() {
   const [busyImport, setBusyImport] = useState(false);
   const [dirty, setDirty] = useState(isNew);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [activeTab, setActiveTab] = useState<EmployeeProfileTab>("personal");
 
   useEffect(() => {
     if (profile.data) {
@@ -330,7 +354,12 @@ export function EmployeeProfilePage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const validationErrors = validateForm(form);
+      const validationErrors = validateForm(
+        form,
+        "all",
+        activeDepartments,
+        activePositions,
+      );
       if (Object.keys(validationErrors).length > 0)
         throw new FormValidationError(validationErrors);
       const payload = toPayload(form, isNew);
@@ -394,6 +423,7 @@ export function EmployeeProfilePage() {
     onError: (saveError) => {
       if (saveError instanceof FormValidationError) {
         setFieldErrors(saveError.fields);
+        setActiveTab(tabForField(Object.keys(saveError.fields)[0]));
         setError(saveError.message);
       } else
         setError(
@@ -404,6 +434,39 @@ export function EmployeeProfilePage() {
 
   const activeDepartments = departments.data ?? [];
   const activePositions = positions.data ?? [];
+
+  function moveToTab(nextTab: EmployeeProfileTab) {
+    const validationErrors = validateForm(
+      form,
+      activeTab,
+      activeDepartments,
+      activePositions,
+    );
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setError("Complete the current tab before continuing.");
+      return;
+    }
+    setFieldErrors({});
+    setError("");
+    setActiveTab(nextTab);
+  }
+
+  function moveForward() {
+    const currentIndex = profileTabs.findIndex((tab) => tab.id === activeTab);
+    const nextTab = profileTabs[currentIndex + 1];
+    if (nextTab) moveToTab(nextTab.id);
+  }
+
+  function moveBackward() {
+    const currentIndex = profileTabs.findIndex((tab) => tab.id === activeTab);
+    const previousTab = profileTabs[currentIndex - 1];
+    if (previousTab) {
+      setFieldErrors({});
+      setError("");
+      setActiveTab(previousTab.id);
+    }
+  }
 
   function clearFieldError(field: string) {
     setFieldErrors((current) => {
@@ -754,733 +817,832 @@ export function EmployeeProfilePage() {
             </Alert>
           )}
 
-          <SectionCard
-            title="Personal information"
-            description="Every official identity, contact, address, and employment status field is required."
-          >
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <ReadOnlyField
-                className="min-w-0"
-                label="Employee number"
-                value={
-                  form.employee.employee_number ||
-                  numberPreview.data ||
-                  "Assigned automatically"
-                }
-              />
-              <Field
-                label="First name"
-                value={form.employee.first_name}
-                onChange={(value) => updateEmployee("first_name", value)}
-                required
-              />
-              <Field
-                label="Middle name"
-                value={form.employee.middle_name}
-                onChange={(value) => updateEmployee("middle_name", value)}
-                required
-              />
-              <Field
-                label="Last name"
-                value={form.employee.last_name}
-                onChange={(value) => updateEmployee("last_name", value)}
-                required
-              />
-              <Field
-                className="sm:col-span-2"
-                label="Email for portal"
-                type="email"
-                value={form.employee.email}
-                onChange={(value) => updateEmployee("email", value)}
-                required
-              />
-              <Field
-                label="Contact number"
-                value={form.employee.contact_number}
-                onChange={(value) => updateEmployee("contact_number", value)}
-                required
-              />
-              <Field
-                label="Birth date"
-                type="date"
-                value={form.employee.birth_date}
-                onChange={(value) => updateEmployee("birth_date", value)}
-                required
-              />
-              <SelectField
-                label="Gender"
-                value={form.employee.gender}
-                onChange={(value) => updateEmployee("gender", value)}
-                options={["Male", "Female", "Other"]}
-                required
-              />
-              <SuggestField
-                label="Civil status"
-                value={form.employee.civil_status}
-                onChange={(value) => updateEmployee("civil_status", value)}
-                options={[
-                  "Single",
-                  "Married",
-                  "Widowed",
-                  "Separated",
-                  "Divorced",
-                  "Other",
-                ]}
-                required
-              />
-              <SuggestField
-                label="Nationality"
-                value={form.employee.nationality}
-                onChange={(value) => updateEmployee("nationality", value)}
-                options={[
-                  "Filipino",
-                  "American",
-                  "Australian",
-                  "British",
-                  "Canadian",
-                  "Chinese",
-                  "Japanese",
-                  "Korean",
-                  "Other",
-                ]}
-                required
-              />
-              <SuggestField
-                label="Religion"
-                value={form.employee.religion}
-                onChange={(value) => updateEmployee("religion", value)}
-                options={[
-                  "Roman Catholic",
-                  "Iglesia ni Cristo",
-                  "Islam",
-                  "Evangelical",
-                  "Protestant",
-                  "Buddhist",
-                  "Hindu",
-                  "Jehovah's Witnesses",
-                  "Other",
-                ]}
-                required
-              />
-              <TextAreaField
-                className="min-w-0 sm:col-span-2"
-                label="Permanent address"
-                value={form.employee.permanent_address}
-                onChange={(value) => updateEmployee("permanent_address", value)}
-                required
-              />
-              <TextAreaField
-                className="min-w-0 sm:col-span-2"
-                label="Present address"
-                value={form.employee.present_address}
-                onChange={(value) => updateEmployee("present_address", value)}
-                required
-              />
-              <SelectField
-                className="sm:col-span-2 xl:col-span-4"
-                label="Employment status"
-                value={form.employee.status}
-                onChange={(value) =>
-                  updateEmployee("status", value as EmploymentStatus)
-                }
-                options={["active", "inactive", "on_leave", "terminated"]}
-                optionLabels={{
-                  active: "Active",
-                  inactive: "Archived",
-                  on_leave: "On leave",
-                  terminated: "Terminated",
-                }}
-                required
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Government identifiers"
-            description="Sensitive identifiers are entered here by administrators and never included in the employee DOCX form."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("identifiers")}
-              >
-                <Plus className="h-4 w-4" />
-                Add identifier
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.identifiers.length === 0 && (
-                <EmptyInline text="No identifiers added." />
-              )}
-              {form.identifiers.map((row, index) => (
-                <div
-                  key={row.id ?? `identifier-${index}`}
-                  className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]"
+          <div className="rounded-2xl border bg-card p-2 shadow-sm">
+            <div
+              role="tablist"
+              aria-label="Employee profile sections"
+              className="scrollbar-subtle flex gap-1 overflow-x-auto"
+            >
+              {profileTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  onClick={() => {
+                    if (tab.id === activeTab) return;
+                    const currentIndex = profileTabs.findIndex(
+                      (item) => item.id === activeTab,
+                    );
+                    const targetIndex = profileTabs.findIndex(
+                      (item) => item.id === tab.id,
+                    );
+                    if (targetIndex > currentIndex) moveToTab(tab.id);
+                    else {
+                      setFieldErrors({});
+                      setError("");
+                      setActiveTab(tab.id);
+                    }
+                  }}
+                  className={`min-h-10 shrink-0 rounded-xl px-3 text-[11px] font-bold tracking-wide transition sm:px-4 ${activeTab === tab.id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
                 >
-                  <Field
-                    label="Type of Card"
-                    value={row.identifier_type}
-                    onChange={(value) =>
-                      updateRow("identifiers", index, {
-                        identifier_type: value,
-                      })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Account ID Number"
-                    value={row.identifier_value}
-                    onChange={(value) =>
-                      updateRow("identifiers", index, {
-                        identifier_value: value,
-                      })
-                    }
-                    required
-                  />
-                  <RemoveButton
-                    onClick={() => removeRow("identifiers", index)}
-                  />
-                </div>
+                  {tab.label}
+                </button>
               ))}
             </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Emergency contacts"
-            description="Add every person the organization should contact in an emergency."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("emergency_contacts")}
-              >
-                <Plus className="h-4 w-4" />
-                Add contact
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.emergency_contacts.length === 0 && (
-                <EmptyInline text="No emergency contacts added." />
-              )}
-              {form.emergency_contacts.map((row, index) => (
-                <div
-                  key={row.id ?? `emergency-${index}`}
-                  className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-3"
+            <div className="mt-2 flex items-center justify-between gap-3 border-t px-2 pt-2 text-xs text-muted-foreground">
+              <span>
+                Section{" "}
+                {profileTabs.findIndex((tab) => tab.id === activeTab) + 1} of{" "}
+                {profileTabs.length}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={moveBackward}
+                  disabled={activeTab === profileTabs[0].id}
                 >
-                  <Field
-                    label="Name"
-                    value={row.name}
-                    onChange={(value) =>
-                      updateRow("emergency_contacts", index, { name: value })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Relationship"
-                    value={row.relationship}
-                    onChange={(value) =>
-                      updateRow("emergency_contacts", index, {
-                        relationship: value,
-                      })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Contact"
-                    value={row.contact}
-                    onChange={(value) =>
-                      updateRow("emergency_contacts", index, { contact: value })
-                    }
-                    required
-                  />
-                  <TextAreaField
-                    className="sm:col-span-3"
-                    label="Address"
-                    value={row.address}
-                    onChange={(value) =>
-                      updateRow("emergency_contacts", index, { address: value })
-                    }
-                    required
-                  />
-                  <RemoveButton
-                    onClick={() => removeRow("emergency_contacts", index)}
-                  />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Dependents"
-            description="Record dependents with their relationship and birth date."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("dependents")}
-              >
-                <Plus className="h-4 w-4" />
-                Add dependent
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.dependents.length === 0 && (
-                <EmptyInline text="No dependents added." />
-              )}
-              {form.dependents.map((row, index) => (
-                <div
-                  key={row.id ?? `dependent-${index}`}
-                  className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={moveForward}
+                  disabled={
+                    activeTab === profileTabs[profileTabs.length - 1].id
+                  }
                 >
-                  <Field
-                    label="Full name"
-                    value={row.name}
-                    onChange={(value) =>
-                      updateRow("dependents", index, { name: value })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Relationship"
-                    value={row.relationship}
-                    onChange={(value) =>
-                      updateRow("dependents", index, { relationship: value })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Birth date"
-                    type="date"
-                    value={row.birth_date}
-                    onChange={(value) =>
-                      updateRow("dependents", index, { birth_date: value })
-                    }
-                    required
-                  />
-                  <RemoveButton
-                    onClick={() => removeRow("dependents", index)}
-                  />
-                </div>
-              ))}
+                  Next
+                </Button>
+              </div>
             </div>
-          </SectionCard>
+          </div>
 
-          <SectionCard
-            title="Educational background"
-            description="Capture schooling and completion details for the employee record."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("educational_backgrounds")}
-              >
-                <Plus className="h-4 w-4" />
-                Add education
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.educational_backgrounds.length === 0 && (
-                <EmptyInline text="No educational background added." />
-              )}
-              {form.educational_backgrounds.map((row, index) => (
-                <div
-                  key={row.id ?? `education-${index}`}
-                  className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.5fr)_minmax(0,0.75fr)]"
+          <div className={activeTab === "personal" ? "block" : "hidden"}>
+            <SectionCard
+              title="Personal information"
+              description="Every official identity, contact, address, and employment status field is required."
+            >
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <ReadOnlyField
+                  className="min-w-0"
+                  label="Employee number"
+                  value={
+                    form.employee.employee_number ||
+                    numberPreview.data ||
+                    "Assigned automatically"
+                  }
+                />
+                <Field
+                  label="First name"
+                  value={form.employee.first_name}
+                  onChange={(value) => updateEmployee("first_name", value)}
+                  required
+                />
+                <Field
+                  label="Middle name"
+                  value={form.employee.middle_name}
+                  onChange={(value) => updateEmployee("middle_name", value)}
+                  required
+                />
+                <Field
+                  label="Last name"
+                  value={form.employee.last_name}
+                  onChange={(value) => updateEmployee("last_name", value)}
+                  required
+                />
+                <Field
+                  className="sm:col-span-2"
+                  label="Email for portal"
+                  type="email"
+                  value={form.employee.email}
+                  onChange={(value) => updateEmployee("email", value)}
+                  required
+                />
+                <Field
+                  label="Contact number"
+                  value={form.employee.contact_number}
+                  onChange={(value) => updateEmployee("contact_number", value)}
+                  required
+                />
+                <Field
+                  label="Birth date"
+                  type="date"
+                  value={form.employee.birth_date}
+                  onChange={(value) => updateEmployee("birth_date", value)}
+                  required
+                />
+                <SelectField
+                  label="Gender"
+                  value={form.employee.gender}
+                  onChange={(value) => updateEmployee("gender", value)}
+                  options={["Male", "Female", "Other"]}
+                  required
+                />
+                <SuggestField
+                  label="Civil status"
+                  value={form.employee.civil_status}
+                  onChange={(value) => updateEmployee("civil_status", value)}
+                  options={[
+                    "Single",
+                    "Married",
+                    "Widowed",
+                    "Separated",
+                    "Divorced",
+                    "Other",
+                  ]}
+                  required
+                />
+                <SuggestField
+                  label="Nationality"
+                  value={form.employee.nationality}
+                  onChange={(value) => updateEmployee("nationality", value)}
+                  options={[
+                    "Filipino",
+                    "American",
+                    "Australian",
+                    "British",
+                    "Canadian",
+                    "Chinese",
+                    "Japanese",
+                    "Korean",
+                    "Other",
+                  ]}
+                  required
+                />
+                <SuggestField
+                  label="Religion"
+                  value={form.employee.religion}
+                  onChange={(value) => updateEmployee("religion", value)}
+                  options={[
+                    "Roman Catholic",
+                    "Iglesia ni Cristo",
+                    "Islam",
+                    "Evangelical",
+                    "Protestant",
+                    "Buddhist",
+                    "Hindu",
+                    "Jehovah's Witnesses",
+                    "Other",
+                  ]}
+                  required
+                />
+                <TextAreaField
+                  className="min-w-0 sm:col-span-2"
+                  label="Permanent address"
+                  value={form.employee.permanent_address}
+                  onChange={(value) =>
+                    updateEmployee("permanent_address", value)
+                  }
+                  required
+                />
+                <TextAreaField
+                  className="min-w-0 sm:col-span-2"
+                  label="Present address"
+                  value={form.employee.present_address}
+                  onChange={(value) => updateEmployee("present_address", value)}
+                  required
+                />
+                <SelectField
+                  className="sm:col-span-2 xl:col-span-4"
+                  label="Employment status"
+                  value={form.employee.status}
+                  onChange={(value) =>
+                    updateEmployee("status", value as EmploymentStatus)
+                  }
+                  options={["active", "inactive", "on_leave", "terminated"]}
+                  optionLabels={{
+                    active: "Active",
+                    inactive: "Archived",
+                    on_leave: "On leave",
+                    terminated: "Terminated",
+                  }}
+                  required
+                />
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "identifiers" ? "block" : "hidden"}>
+            <SectionCard
+              title="Government identifiers"
+              description="Sensitive identifiers are entered here by administrators and never included in the employee DOCX form."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("identifiers")}
                 >
-                  <Field
-                    label="Level"
-                    value={row.level}
-                    onChange={(value) =>
-                      updateRow("educational_backgrounds", index, {
-                        level: value,
-                      })
-                    }
-                    required
-                  />
-                  <Field
-                    label="School"
-                    value={row.school}
-                    onChange={(value) =>
-                      updateRow("educational_backgrounds", index, {
-                        school: value,
-                      })
-                    }
-                    required
-                  />
-                  <Field
-                    label="School year"
-                    value={row.school_year}
-                    onChange={(value) =>
-                      updateRow("educational_backgrounds", index, {
-                        school_year: value,
-                      })
-                    }
-                    required
-                  />
-                  <TextAreaField
-                    className="sm:col-span-3"
-                    label="Address"
-                    value={row.address}
-                    onChange={(value) =>
-                      updateRow("educational_backgrounds", index, {
-                        address: value,
-                      })
-                    }
-                    required
-                  />
-                  <RemoveButton
-                    onClick={() => removeRow("educational_backgrounds", index)}
-                  />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Character references"
-            description="Keep trusted reference contacts attached to the employee profile."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("character_references")}
-              >
-                <Plus className="h-4 w-4" />
-                Add reference
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.character_references.length === 0 && (
-                <EmptyInline text="No character references added." />
-              )}
-              {form.character_references.map((row, index) => (
-                <div
-                  key={row.id ?? `reference-${index}`}
-                  className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-3"
-                >
-                  <Field
-                    label="Name"
-                    value={row.name}
-                    onChange={(value) =>
-                      updateRow("character_references", index, { name: value })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Occupation"
-                    value={row.occupation}
-                    onChange={(value) =>
-                      updateRow("character_references", index, {
-                        occupation: value,
-                      })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Contact"
-                    value={row.contact}
-                    onChange={(value) =>
-                      updateRow("character_references", index, {
-                        contact: value,
-                      })
-                    }
-                    required
-                  />
-                  <TextAreaField
-                    className="sm:col-span-3"
-                    label="Address"
-                    value={row.address}
-                    onChange={(value) =>
-                      updateRow("character_references", index, {
-                        address: value,
-                      })
-                    }
-                    required
-                  />
-                  <RemoveButton
-                    onClick={() => removeRow("character_references", index)}
-                  />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Position and assignment"
-            description="Maintain the current and historical position assignments used by payroll and reporting."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("assignments")}
-              >
-                <Plus className="h-4 w-4" />
-                Add assignment
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.assignments.length === 0 && (
-                <EmptyInline text="No position assignment added." />
-              )}
-              {form.assignments.map((row, index) => {
-                const filteredPositions = activePositions.filter(
-                  (position) =>
-                    !row.department_id ||
-                    position.department_id === row.department_id,
-                );
-                return (
+                  <Plus className="h-4 w-4" />
+                  Add identifier
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.identifiers.length === 0 && (
+                  <EmptyInline text="No identifiers added." />
+                )}
+                {form.identifiers.map((row, index) => (
                   <div
-                    key={row.id ?? `assignment-${index}`}
-                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_auto]"
+                    key={row.id ?? `identifier-${index}`}
+                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]"
                   >
-                    <SelectField
-                      label="Department"
-                      value={row.department_id}
+                    <Field
+                      label="Type of Card"
+                      value={row.identifier_type}
                       onChange={(value) =>
-                        updateRow("assignments", index, {
-                          department_id: value,
-                          position_id: "",
+                        updateRow("identifiers", index, {
+                          identifier_type: value,
                         })
                       }
-                      options={activeDepartments.map(
-                        (department) => department.id,
-                      )}
-                      optionLabels={Object.fromEntries(
-                        activeDepartments.map((department) => [
-                          department.id,
-                          department.name,
-                        ]),
-                      )}
-                      required
-                    />
-                    <SelectField
-                      label="Position"
-                      value={row.position_id}
-                      onChange={(value) =>
-                        updateRow("assignments", index, { position_id: value })
-                      }
-                      options={filteredPositions.map((position) => position.id)}
-                      optionLabels={Object.fromEntries(
-                        filteredPositions.map((position) => [
-                          position.id,
-                          position.name,
-                        ]),
-                      )}
                       required
                     />
                     <Field
-                      label="Start date"
-                      type="date"
-                      value={row.start_date}
+                      label="Account ID Number"
+                      value={row.identifier_value}
                       onChange={(value) =>
-                        updateRow("assignments", index, { start_date: value })
+                        updateRow("identifiers", index, {
+                          identifier_value: value,
+                        })
+                      }
+                      required
+                    />
+                    <RemoveButton
+                      onClick={() => removeRow("identifiers", index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "emergency" ? "block" : "hidden"}>
+            <SectionCard
+              title="Emergency contacts"
+              description="Add every person the organization should contact in an emergency."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("emergency_contacts")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add contact
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.emergency_contacts.length === 0 && (
+                  <EmptyInline text="No emergency contacts added." />
+                )}
+                {form.emergency_contacts.map((row, index) => (
+                  <div
+                    key={row.id ?? `emergency-${index}`}
+                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-3"
+                  >
+                    <Field
+                      label="Name"
+                      value={row.name}
+                      onChange={(value) =>
+                        updateRow("emergency_contacts", index, { name: value })
                       }
                       required
                     />
                     <Field
-                      label="End date (optional)"
-                      type="date"
-                      min={row.start_date}
-                      value={row.end_date}
+                      label="Relationship"
+                      value={row.relationship}
                       onChange={(value) =>
-                        updateRow("assignments", index, { end_date: value })
+                        updateRow("emergency_contacts", index, {
+                          relationship: value,
+                        })
                       }
+                      required
+                    />
+                    <Field
+                      label="Contact"
+                      value={row.contact}
+                      onChange={(value) =>
+                        updateRow("emergency_contacts", index, {
+                          contact: value,
+                        })
+                      }
+                      required
+                    />
+                    <TextAreaField
+                      className="sm:col-span-3"
+                      label="Address"
+                      value={row.address}
+                      onChange={(value) =>
+                        updateRow("emergency_contacts", index, {
+                          address: value,
+                        })
+                      }
+                      required
+                    />
+                    <RemoveButton
+                      onClick={() => removeRow("emergency_contacts", index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "dependents" ? "block" : "hidden"}>
+            <SectionCard
+              title="Dependents"
+              description="Record dependents with their relationship and birth date."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("dependents")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add dependent
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.dependents.length === 0 && (
+                  <EmptyInline text="No dependents added." />
+                )}
+                {form.dependents.map((row, index) => (
+                  <div
+                    key={row.id ?? `dependent-${index}`}
+                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                  >
+                    <Field
+                      label="Full name"
+                      value={row.name}
+                      onChange={(value) =>
+                        updateRow("dependents", index, { name: value })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Relationship"
+                      value={row.relationship}
+                      onChange={(value) =>
+                        updateRow("dependents", index, { relationship: value })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Birth date"
+                      type="date"
+                      value={row.birth_date}
+                      onChange={(value) =>
+                        updateRow("dependents", index, { birth_date: value })
+                      }
+                      required
+                    />
+                    <RemoveButton
+                      onClick={() => removeRow("dependents", index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "education" ? "block" : "hidden"}>
+            <SectionCard
+              title="Educational background"
+              description="Capture schooling and completion details for the employee record."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("educational_backgrounds")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add education
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.educational_backgrounds.length === 0 && (
+                  <EmptyInline text="No educational background added." />
+                )}
+                {form.educational_backgrounds.map((row, index) => (
+                  <div
+                    key={row.id ?? `education-${index}`}
+                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.5fr)_minmax(0,0.75fr)]"
+                  >
+                    <Field
+                      label="Level"
+                      value={row.level}
+                      onChange={(value) =>
+                        updateRow("educational_backgrounds", index, {
+                          level: value,
+                        })
+                      }
+                      required
+                    />
+                    <Field
+                      label="School"
+                      value={row.school}
+                      onChange={(value) =>
+                        updateRow("educational_backgrounds", index, {
+                          school: value,
+                        })
+                      }
+                      required
+                    />
+                    <Field
+                      label="School year"
+                      value={row.school_year}
+                      onChange={(value) =>
+                        updateRow("educational_backgrounds", index, {
+                          school_year: value,
+                        })
+                      }
+                      required
+                    />
+                    <TextAreaField
+                      className="sm:col-span-3"
+                      label="Address"
+                      value={row.address}
+                      onChange={(value) =>
+                        updateRow("educational_backgrounds", index, {
+                          address: value,
+                        })
+                      }
+                      required
+                    />
+                    <RemoveButton
+                      onClick={() =>
+                        removeRow("educational_backgrounds", index)
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "references" ? "block" : "hidden"}>
+            <SectionCard
+              title="Character references"
+              description="Keep trusted reference contacts attached to the employee profile."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("character_references")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add reference
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.character_references.length === 0 && (
+                  <EmptyInline text="No character references added." />
+                )}
+                {form.character_references.map((row, index) => (
+                  <div
+                    key={row.id ?? `reference-${index}`}
+                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-3"
+                  >
+                    <Field
+                      label="Name"
+                      value={row.name}
+                      onChange={(value) =>
+                        updateRow("character_references", index, {
+                          name: value,
+                        })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Occupation"
+                      value={row.occupation}
+                      onChange={(value) =>
+                        updateRow("character_references", index, {
+                          occupation: value,
+                        })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Contact"
+                      value={row.contact}
+                      onChange={(value) =>
+                        updateRow("character_references", index, {
+                          contact: value,
+                        })
+                      }
+                      required
+                    />
+                    <TextAreaField
+                      className="sm:col-span-3"
+                      label="Address"
+                      value={row.address}
+                      onChange={(value) =>
+                        updateRow("character_references", index, {
+                          address: value,
+                        })
+                      }
+                      required
+                    />
+                    <RemoveButton
+                      onClick={() => removeRow("character_references", index)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "assignment" ? "block" : "hidden"}>
+            <SectionCard
+              title="Position and assignment"
+              description="Maintain the current and historical position assignments used by payroll and reporting."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("assignments")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add assignment
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.assignments.length === 0 && (
+                  <EmptyInline text="No position assignment added." />
+                )}
+                {form.assignments.map((row, index) => {
+                  const filteredPositions = activePositions.filter(
+                    (position) =>
+                      !row.department_id ||
+                      position.department_id === row.department_id,
+                  );
+                  return (
+                    <div
+                      key={row.id ?? `assignment-${index}`}
+                      className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,0.85fr)_minmax(0,0.85fr)_auto]"
+                    >
+                      <SelectField
+                        label="Department"
+                        value={row.department_id}
+                        onChange={(value) =>
+                          updateRow("assignments", index, {
+                            department_id: value,
+                            position_id: "",
+                          })
+                        }
+                        options={activeDepartments.map(
+                          (department) => department.id,
+                        )}
+                        optionLabels={Object.fromEntries(
+                          activeDepartments.map((department) => [
+                            department.id,
+                            department.name,
+                          ]),
+                        )}
+                        required
+                      />
+                      <SelectField
+                        label="Position"
+                        value={row.position_id}
+                        onChange={(value) =>
+                          updateRow("assignments", index, {
+                            position_id: value,
+                          })
+                        }
+                        options={filteredPositions.map(
+                          (position) => position.id,
+                        )}
+                        optionLabels={Object.fromEntries(
+                          filteredPositions.map((position) => [
+                            position.id,
+                            position.name,
+                          ]),
+                        )}
+                        required
+                      />
+                      <Field
+                        label="Start date"
+                        type="date"
+                        value={row.start_date}
+                        onChange={(value) =>
+                          updateRow("assignments", index, { start_date: value })
+                        }
+                        required
+                      />
+                      <Field
+                        label="End date (optional)"
+                        type="date"
+                        min={row.start_date}
+                        value={row.end_date}
+                        onChange={(value) =>
+                          updateRow("assignments", index, { end_date: value })
+                        }
+                      />
+                      <label className="flex min-h-10 items-center gap-2 self-end text-sm font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={row.is_primary}
+                          onChange={(event) => {
+                            markDirty();
+                            setForm((current) => ({
+                              ...current,
+                              assignments: current.assignments.map(
+                                (item, itemIndex) => ({
+                                  ...item,
+                                  is_primary:
+                                    itemIndex === index
+                                      ? event.target.checked
+                                      : false,
+                                }),
+                              ),
+                            }));
+                          }}
+                        />
+                        Primary
+                      </label>
+                      <RemoveButton
+                        onClick={() => removeRow("assignments", index)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className={activeTab === "salary" ? "block" : "hidden"}>
+            <SectionCard
+              title="Salary history"
+              description="Configure effective-dated compensation here. These values are not read from the employee DOCX."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => addRow("salary_history")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add salary
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {form.salary_history.length === 0 && (
+                  <EmptyInline text="No salary history added. Payroll cannot run until an approved salary exists." />
+                )}
+                {form.salary_history.map((row, index) => (
+                  <div
+                    key={row.id ?? `salary-${index}`}
+                    className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)]"
+                  >
+                    <SalaryTypeCapsules
+                      label="Salary type"
+                      name={`salary-type-${index}`}
+                      value={row.salary_type}
+                      onChange={(value) =>
+                        updateRow("salary_history", index, {
+                          salary_type: value,
+                        })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Amount"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={row.amount}
+                      onChange={(value) =>
+                        updateRow("salary_history", index, { amount: value })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Effective from"
+                      type="date"
+                      value={row.effective_from}
+                      onChange={(value) =>
+                        updateRow("salary_history", index, {
+                          effective_from: value,
+                        })
+                      }
+                      required
+                    />
+                    <Field
+                      label="Effective to (optional)"
+                      type="date"
+                      min={row.effective_from}
+                      value={row.effective_to}
+                      onChange={(value) =>
+                        updateRow("salary_history", index, {
+                          effective_to: value,
+                        })
+                      }
+                    />
+                    <Field
+                      className="sm:col-span-3"
+                      label="Source"
+                      value={row.source}
+                      onChange={(value) =>
+                        updateRow("salary_history", index, { source: value })
+                      }
+                      required
                     />
                     <label className="flex min-h-10 items-center gap-2 self-end text-sm font-semibold">
                       <input
                         type="checkbox"
-                        checked={row.is_primary}
-                        onChange={(event) => {
-                          markDirty();
-                          setForm((current) => ({
-                            ...current,
-                            assignments: current.assignments.map(
-                              (item, itemIndex) => ({
-                                ...item,
-                                is_primary:
-                                  itemIndex === index
-                                    ? event.target.checked
-                                    : false,
-                              }),
-                            ),
-                          }));
-                        }}
+                        checked={row.is_approved}
+                        onChange={(event) =>
+                          updateRow("salary_history", index, {
+                            is_approved: event.target.checked,
+                          })
+                        }
                       />
-                      Primary
+                      Approved
                     </label>
                     <RemoveButton
-                      onClick={() => removeRow("assignments", index)}
+                      onClick={() => removeRow("salary_history", index)}
                     />
                   </div>
-                );
-              })}
-            </div>
-          </SectionCard>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
 
-          <SectionCard
-            title="Salary history"
-            description="Configure effective-dated compensation here. These values are not read from the employee DOCX."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => addRow("salary_history")}
-              >
-                <Plus className="h-4 w-4" />
-                Add salary
-              </Button>
-            }
-          >
-            <div className="space-y-3">
-              {form.salary_history.length === 0 && (
-                <EmptyInline text="No salary history added. Payroll cannot run until an approved salary exists." />
-              )}
-              {form.salary_history.map((row, index) => (
-                <div
-                  key={row.id ?? `salary-${index}`}
-                  className="relative grid min-w-0 gap-4 rounded-2xl border p-4 pr-14 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)]"
-                >
-                  <SelectField
-                    label="Salary type"
-                    value={row.salary_type}
-                    onChange={(value) =>
-                      updateRow("salary_history", index, {
-                        salary_type: value as SalaryType,
-                      })
-                    }
-                    options={["monthly", "daily", "hourly"]}
-                    required
-                  />
-                  <Field
-                    label="Amount"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={row.amount}
-                    onChange={(value) =>
-                      updateRow("salary_history", index, { amount: value })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Effective from"
-                    type="date"
-                    value={row.effective_from}
-                    onChange={(value) =>
-                      updateRow("salary_history", index, {
-                        effective_from: value,
-                      })
-                    }
-                    required
-                  />
-                  <Field
-                    label="Effective to (optional)"
-                    type="date"
-                    min={row.effective_from}
-                    value={row.effective_to}
-                    onChange={(value) =>
-                      updateRow("salary_history", index, {
-                        effective_to: value,
-                      })
-                    }
-                  />
-                  <Field
-                    className="sm:col-span-3"
-                    label="Source"
-                    value={row.source}
-                    onChange={(value) =>
-                      updateRow("salary_history", index, { source: value })
-                    }
-                    required
-                  />
-                  <label className="flex min-h-10 items-center gap-2 self-end text-sm font-semibold">
-                    <input
-                      type="checkbox"
-                      checked={row.is_approved}
-                      onChange={(event) =>
-                        updateRow("salary_history", index, {
-                          is_approved: event.target.checked,
-                        })
-                      }
-                    />
-                    Approved
-                  </label>
-                  <RemoveButton
-                    onClick={() => removeRow("salary_history", index)}
-                  />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Retained documents"
-            description="Completed employee DOCX forms are stored privately for administrator audit access."
-          >
-            <div className="space-y-3">
-              {currentProfile?.documents.length ? (
-                currentProfile.documents.map((document) => (
-                  <div
-                    key={document.id}
-                    className="flex min-w-0 flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <FileText className="h-5 w-5 shrink-0 text-primary" />
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold">
-                          {document.original_name}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Stored {formatDate(document.created_at.slice(0, 10))}{" "}
-                          · {document.parser_version}
+          <div className={activeTab === "documents" ? "block" : "hidden"}>
+            <SectionCard
+              title="Retained documents"
+              description="Completed employee DOCX forms are stored privately for administrator audit access."
+            >
+              <div className="space-y-3">
+                {currentProfile?.documents.length ? (
+                  currentProfile.documents.map((document) => (
+                    <div
+                      key={document.id}
+                      className="flex min-w-0 flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <FileText className="h-5 w-5 shrink-0 text-primary" />
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold">
+                            {document.original_name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Stored{" "}
+                            {formatDate(document.created_at.slice(0, 10))} ·{" "}
+                            {document.parser_version}
+                          </div>
                         </div>
                       </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={async () => {
+                          try {
+                            const url = await getEmployeeDocumentUrl(
+                              document.storage_path,
+                            );
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          } catch {
+                            setError(
+                              "The private document could not be opened.",
+                            );
+                          }
+                        }}
+                      >
+                        Open private copy
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      onClick={async () => {
-                        try {
-                          const url = await getEmployeeDocumentUrl(
-                            document.storage_path,
-                          );
-                          window.open(url, "_blank", "noopener,noreferrer");
-                        } catch {
-                          setError("The private document could not be opened.");
-                        }
-                      }}
-                    >
-                      Open private copy
-                    </Button>
-                  </div>
-                ))
-              ) : (
-                <EmptyInline text="No retained DOCX form yet." />
-              )}
-            </div>
-          </SectionCard>
+                  ))
+                ) : (
+                  <EmptyInline text="No retained DOCX form yet." />
+                )}
+              </div>
+            </SectionCard>
+          </div>
 
           <ConfirmationDialog
             open={confirmLeave}
@@ -1549,7 +1711,12 @@ function toPayload(form: FormState, isNew: boolean): EmployeeProfilePayload {
   };
 }
 
-function validateForm(form: FormState) {
+function validateForm(
+  form: FormState,
+  tab: EmployeeProfileTab | "all" = "all",
+  activeDepartments: Array<{ id: string }> = [],
+  activePositions: Array<{ id: string; department_id: string | null }> = [],
+) {
   const errors: Record<string, string> = {};
   const requiredEmployeeFields: Array<[keyof FormState["employee"], string]> = [
     ["first_name", "First name"],
@@ -1638,6 +1805,31 @@ function validateForm(form: FormState) {
   )
     errors.assignments =
       "Assignment end dates must be on or after the start date.";
+  const completeAssignments = form.assignments.filter(
+    (assignment) =>
+      assignment.department_id &&
+      assignment.position_id &&
+      assignment.start_date,
+  );
+  if (completeAssignments.length === 0) {
+    errors.assignments =
+      "At least one active department and position assignment is required.";
+  } else if (
+    completeAssignments.some(
+      (assignment) =>
+        !activeDepartments.some(
+          (department) => department.id === assignment.department_id,
+        ) ||
+        !activePositions.some(
+          (position) =>
+            position.id === assignment.position_id &&
+            position.department_id === assignment.department_id,
+        ),
+    )
+  ) {
+    errors.assignments =
+      "Every saved assignment must use an active department and a matching active position.";
+  }
   if (
     form.salary_history.some(
       (salary) =>
@@ -1661,11 +1853,18 @@ function validateForm(form: FormState) {
     errors.salary_history =
       "Salary end dates must be on or after the effective start date.";
   if (
+    !form.salary_history.some(
+      (salary) => Number(salary.amount) > 0 && Boolean(salary.effective_from),
+    )
+  ) {
+    errors.salary_history = "At least one positive salary is required.";
+  }
+  if (
     form.identifiers.some(
       (identifier) =>
         Boolean(
           identifier.identifier_type.trim() ||
-            identifier.identifier_value.trim(),
+          identifier.identifier_value.trim(),
         ) &&
         (!identifier.identifier_type.trim() ||
           !identifier.identifier_value.trim()),
@@ -1673,7 +1872,47 @@ function validateForm(form: FormState) {
   )
     errors.identifiers =
       "Complete both the identifier type and account ID number, or remove the unused row.";
-  return errors;
+  if (tab === "all") return errors;
+  const fieldsByTab: Record<EmployeeProfileTab, string[]> = {
+    personal: [
+      "first_name",
+      "middle_name",
+      "last_name",
+      "email",
+      "contact_number",
+      "birth_date",
+      "gender",
+      "civil_status",
+      "nationality",
+      "religion",
+      "permanent_address",
+      "present_address",
+      "status",
+    ],
+    identifiers: ["identifiers"],
+    emergency: ["emergency_contacts"],
+    dependents: ["dependents"],
+    education: ["educational_backgrounds"],
+    references: ["character_references"],
+    assignment: ["assignments"],
+    salary: ["salary_history"],
+    documents: [],
+  };
+  const allowed = new Set(fieldsByTab[tab]);
+  return Object.fromEntries(
+    Object.entries(errors).filter(([field]) => allowed.has(field)),
+  );
+}
+
+function tabForField(field: string | undefined): EmployeeProfileTab {
+  if (field === "identifiers") return "identifiers";
+  if (field === "emergency_contacts") return "emergency";
+  if (field === "dependents") return "dependents";
+  if (field === "educational_backgrounds") return "education";
+  if (field === "character_references") return "references";
+  if (field === "assignments") return "assignment";
+  if (field === "salary_history") return "salary";
+  return "personal";
 }
 
 function hasValue(row: object) {
@@ -1684,10 +1923,10 @@ function hasValue(row: object) {
 function hasAssignmentValue(row: AssignmentForm) {
   return Boolean(
     row.department_id ||
-      row.position_id ||
-      row.department_name ||
-      row.position_name ||
-      row.end_date,
+    row.position_id ||
+    row.department_name ||
+    row.position_name ||
+    row.end_date,
   );
 }
 function hasSalaryValue(row: SalaryForm) {
@@ -2059,6 +2298,65 @@ function SelectField({
         <p className="mt-1 text-xs font-medium text-red-600">{error}</p>
       )}
     </div>
+  );
+}
+
+function SalaryTypeCapsules({
+  label,
+  name,
+  value,
+  onChange,
+  required = false,
+}: {
+  label: string;
+  name: string;
+  value: SalaryType;
+  onChange: (value: SalaryType) => void;
+  required?: boolean;
+}) {
+  const error = fieldErrorFor(label, useContext(FieldErrorsContext));
+  const clearFieldError = useContext(ClearFieldErrorContext);
+  const options: Array<{ value: SalaryType; label: string }> = [
+    { value: "monthly", label: "MONTHLY" },
+    { value: "daily", label: "DAILY" },
+    { value: "hourly", label: "HOURLY" },
+  ];
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-sm font-semibold">
+        {label}
+        {required && <span className="ml-1 text-red-600">*</span>}
+      </legend>
+      <div
+        className="grid grid-cols-3 gap-2"
+        role="radiogroup"
+        aria-label={label}
+      >
+        {options.map((option) => (
+          <label
+            key={option.value}
+            className={`flex min-h-10 cursor-pointer items-center justify-center rounded-xl border px-2 text-center text-xs font-bold tracking-wide transition ${value === option.value ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-input bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"}`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              onFocus={() => clearFieldError(fieldKeyFor(label))}
+              onChange={() => {
+                clearFieldError(fieldKeyFor(label));
+                onChange(option.value);
+              }}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+      {error && (
+        <p className="mt-1 text-xs font-medium text-red-600">{error}</p>
+      )}
+    </fieldset>
   );
 }
 

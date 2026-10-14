@@ -144,7 +144,7 @@ const employeeGroups: NavigationGroup[] = [
   },
   {
     id: "payroll",
-    label: "Pay information",
+    label: "My payroll",
     items: [
       {
         label: "My attendance",

@@ -207,7 +207,7 @@ export interface Attendance {
   notes: string | null
   created_at: string
   updated_at: string
-  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name'>
+  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
 }
 
 export interface LoanType {
@@ -229,7 +229,7 @@ export interface EmployeeLoan {
   outstanding_balance: number
   priority: number | null
   status: LoanStatus
-  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name'>
+  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
   loan_type?: Pick<LoanType, 'id' | 'name'>
 }
 
@@ -242,7 +242,7 @@ export interface OtherTransaction {
   description: string | null
   status: RequestStatus | 'approved' | 'pending'
   created_at: string
-  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name'>
+  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
 }
 
 export interface PayrollRecord {
@@ -262,7 +262,7 @@ export interface PayrollRecord {
   net_pay: number
   calculation_version: string
   created_at: string
-  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name'>
+  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
 }
 
 export interface ProfileChangeRequest {
@@ -274,7 +274,7 @@ export interface ProfileChangeRequest {
   reviewed_by: string | null
   reviewed_at: string | null
   created_at: string
-  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name'>
+  employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
 }
 
 export interface Notification {
@@ -307,4 +307,12 @@ export interface DashboardStats {
   payrollExpense: number
   pendingTransactions: number
   outstandingLoans: number
+}
+
+export interface StatutoryStatus {
+  schedule_type: 'sss' | 'philhealth' | 'pagibig' | 'withholding_tax'
+  status: 'RECORDED' | 'NEEDED'
+  effective_from: string | null
+  source_reference: string | null
+  source_url: string | null
 }
