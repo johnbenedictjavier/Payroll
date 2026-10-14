@@ -291,7 +291,7 @@ export function TransactionsPage() {
             </div>
           ) : visibleTransactions.length ? (
             <>
-              <div className="hidden md:block">
+              <div className="hidden lg:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -322,7 +322,7 @@ export function TransactionsPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="space-y-3 md:hidden">
+              <div className="space-y-3 lg:hidden">
                 {pagination.pageItems.map((transaction) => (
                   <TransactionCard
                     key={transaction.id}

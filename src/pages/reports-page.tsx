@@ -265,7 +265,7 @@ export function ReportsPage() {
           icon={FileBarChart}
         />
       </div>
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="mt-6 grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="print:hidden">
           <CardHeader>
             <CardTitle>Net pay by employee</CardTitle>
@@ -339,7 +339,7 @@ export function ReportsPage() {
               </div>
             ) : visibleRecords.length ? (
               <>
-                <div className="hidden md:block">
+                <div className="hidden 2xl:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -361,7 +361,7 @@ export function ReportsPage() {
                     </TableBody>
                   </Table>
                 </div>
-                <div className="space-y-2 md:hidden">
+                <div className="space-y-2 2xl:hidden">
                   {visibleRecords.map((record) => (
                     <ReportCard
                       key={record.id}

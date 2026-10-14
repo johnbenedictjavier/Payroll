@@ -311,7 +311,7 @@ export function EmployeesPage() {
             </div>
           ) : visibleEmployees.length ? (
             <>
-              <div className="hidden md:block">
+              <div className="hidden lg:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -351,7 +351,7 @@ export function EmployeesPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="space-y-3 p-3 md:hidden">
+              <div className="space-y-3 p-3 lg:hidden">
                 {employeePagination.pageItems.map((employee) => (
                   <EmployeeCard
                     key={employee.id}

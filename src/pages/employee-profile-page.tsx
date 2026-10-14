@@ -841,7 +841,7 @@ export function EmployeeProfilePage() {
             <div
               role="tablist"
               aria-label="Employee profile sections"
-              className="scrollbar-subtle flex gap-1 overflow-x-auto"
+              className="flex flex-wrap gap-1"
             >
               {profileTabs.map((tab) => (
                 <button

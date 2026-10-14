@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1'
+import { PDFDocument, StandardFonts, type PDFPage } from 'npm:pdf-lib@1.17.1'
+import { drawFooter, drawLabelValue, drawReportHeader, drawTableHeader, drawTableRow, money, numberValue, PDF_COLORS, type PdfColumn } from '../_shared/pdf-layout.ts'
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -26,22 +27,82 @@ Deno.serve(async (request) => {
       if (!employee) return json({ error: 'Payslip access denied.' }, 403)
     }
     let storagePath = payslip.storage_path as string | null
-    if (!storagePath) {
+    if (!storagePath || !storagePath.startsWith('v2/')) {
       const { data: record } = await adminClient.from('pms_payroll_records').select('*, employee:pms_employees(employee_number,first_name,last_name), period:pms_payroll_periods(name,start_date,end_date,pay_date)').eq('id', payslip.payroll_record_id).single()
       if (!record) return json({ error: 'Payroll record not found.' }, 404)
       const pdf = await PDFDocument.create()
-      const page = pdf.addPage([612, 792])
+      const page: PDFPage = pdf.addPage([612, 792])
       const font = await pdf.embedFont(StandardFonts.Helvetica)
       const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-      const draw = (text: string, x: number, y: number, size = 11, isBold = false) => page.drawText(text, { x, y, size, font: isBold ? bold : font, color: rgb(0.08, 0.12, 0.2) })
-      draw('LCC PAYROLL', 54, 724, 22, true); draw('Employee Payslip', 54, 696, 13); draw(String(record.period?.name ?? 'Payroll period'), 54, 672, 11); draw(`Pay date: ${record.period?.pay_date ?? 'Not set'}`, 54, 653, 10)
-      draw(`Employee: ${record.employee?.first_name ?? ''} ${record.employee?.last_name ?? ''}`, 54, 615, 11, true); draw(`Employee number: ${record.employee?.employee_number ?? ''}`, 54, 596, 10)
-      page.drawLine({ start: { x: 54, y: 570 }, end: { x: 558, y: 570 }, thickness: 1, color: rgb(0.75, 0.8, 0.85) })
-      const rows = [['Basic pay', record.basic_pay], ['Overtime pay', record.overtime_pay], ['Other income', record.other_income], ['Employee contributions', -record.employee_contributions], ['Withholding tax', -record.withholding_tax], ['Loan deductions', -record.loan_deductions], ['Other deductions', -record.other_deductions], ['Gross pay', record.gross_pay], ['Total deductions', -record.total_deductions], ['NET PAY', record.net_pay]] as Array<[string, number]>
-      rows.forEach(([label, amount], index) => { const y = 535 - index * 27; draw(label, 60, y, label === 'NET PAY' ? 13 : 10, label === 'NET PAY' || label === 'Gross pay'); draw(`PHP ${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 405, y, label === 'NET PAY' ? 13 : 10, label === 'NET PAY' || label === 'Gross pay') })
-      draw('Private payroll document. Statutory and tax amounts use the approved payroll schedules.', 54, 72, 9)
+      const snapshot = (record.calculation_snapshot ?? {}) as Record<string, unknown>
+      const attendance = (snapshot.attendance ?? {}) as Record<string, unknown>
+      const statutory = (snapshot.statutory ?? {}) as Record<string, unknown>
+      const sss = (statutory.sss ?? {}) as Record<string, unknown>
+      const philhealth = (statutory.philhealth ?? {}) as Record<string, unknown>
+      const pagibig = (statutory.pagibig ?? {}) as Record<string, unknown>
+      const columns: PdfColumn[] = [
+        { label: 'Payroll component', width: 385 },
+        { label: 'Amount', width: 143, align: 'right' },
+      ]
+      const employeeName = `${record.employee?.first_name ?? ''} ${record.employee?.last_name ?? ''}`.trim() || 'Employee'
+      let y = drawReportHeader(page, font, bold, 'Employee payslip', `${record.period?.name ?? 'Payroll period'} · Pay date ${record.period?.pay_date ?? 'Not set'}`, 1)
+      page.drawRectangle({ x: 42, y: y - 66, width: 528, height: 66, color: PDF_COLORS.soft, borderColor: PDF_COLORS.border, borderWidth: 0.6 })
+      drawLabelValue(page, font, bold, 'Employee', employeeName, 56, y - 16, 230)
+      drawLabelValue(page, font, bold, 'Employee number', record.employee?.employee_number ?? '', 310, y - 16, 110)
+      drawLabelValue(page, font, bold, 'Payroll period', record.period?.name ?? 'Payroll period', 430, y - 16, 120)
+      drawLabelValue(page, font, bold, 'Pay date', record.period?.pay_date ?? 'Not set', 56, y - 47, 180)
+      drawLabelValue(page, font, bold, 'Status', 'Published', 310, y - 47, 110)
+      y -= 84
+
+      const drawSection = (label: string) => {
+        page.drawText(label, { x: 42, y, size: 9, font: bold, color: PDF_COLORS.primary })
+        y -= 14
+        y = drawTableHeader(page, bold, columns, 42, y, 8)
+      }
+      const drawRows = (rows: Array<[string, unknown]>) => {
+        rows.forEach(([label, amount]) => {
+          const values = [label, money(amount)]
+          y = drawTableRow(page, font, bold, columns, values, 42, y, { size: 8, strong: label === 'Gross pay' || label === 'Total deductions' })
+        })
+      }
+
+      drawSection('EARNINGS')
+      drawRows([
+        ['Base pay', record.base_pay ?? record.basic_pay],
+        ['Attendance deductions', -numberValue(record.attendance_deductions)],
+        ['Basic pay after attendance', record.basic_pay],
+        ['Overtime pay', record.overtime_pay],
+        ['Other income', record.other_income],
+        ['Gross pay', record.gross_pay],
+      ])
+
+      y -= 14
+      drawSection('EMPLOYEE DEDUCTIONS')
+      const contributionRows: Array<[string, unknown]> = [
+        ['SSS employee contribution', -numberValue(sss.employee)],
+        ['PhilHealth employee contribution', -numberValue(philhealth.employee)],
+        ['Pag-IBIG employee contribution', -numberValue(pagibig.employee)],
+        ['Withholding tax', -numberValue(record.withholding_tax)],
+        ['Loan deductions', -numberValue(record.loan_deductions)],
+        ['Other deductions', -numberValue(record.other_deductions)],
+      ]
+      if (numberValue(contributionRows[0][1]) + numberValue(contributionRows[1][1]) + numberValue(contributionRows[2][1]) === 0 && numberValue(record.employee_contributions) > 0) {
+        contributionRows.splice(0, 3, ['Employee statutory contributions', -numberValue(record.employee_contributions)])
+      }
+      drawRows(contributionRows)
+      drawRows([['Total deductions', -numberValue(record.total_deductions)]])
+
+      y -= 14
+      page.drawRectangle({ x: 42, y: y - 76, width: 528, height: 76, color: PDF_COLORS.soft, borderColor: PDF_COLORS.border, borderWidth: 0.6 })
+      drawLabelValue(page, font, bold, 'Net pay', money(record.net_pay), 56, y - 17, 160)
+      drawLabelValue(page, font, bold, 'Employer contributions', money(record.employer_contributions), 230, y - 17, 170)
+      drawLabelValue(page, font, bold, 'Days worked', attendance.days_worked ?? '', 420, y - 17, 120)
+      drawLabelValue(page, font, bold, 'Absences', attendance.absence_days ?? '', 56, y - 50, 160)
+      drawLabelValue(page, font, bold, 'Tardiness', `${attendance.tardiness_minutes ?? 0} minutes`, 230, y - 50, 170)
+      drawLabelValue(page, font, bold, 'Overtime', `${attendance.overtime_hours ?? 0} hours`, 420, y - 50, 120)
+      drawFooter(page, font, 'Private payroll document. Statutory and tax amounts use the approved payroll schedules.')
       const bytes = await pdf.save()
-      storagePath = `pms-payslips/${record.employee?.employee_number ?? payslip.employee_id}/${payslip.id}.pdf`
+      storagePath = `v2/${record.employee?.employee_number ?? payslip.employee_id}/${payslip.id}.pdf`
       const { error: uploadError } = await adminClient.storage.from('pms-payslips').upload(storagePath, bytes, { contentType: 'application/pdf', upsert: true })
       if (uploadError) return json({ error: uploadError.message }, 500)
       await adminClient.from('pms_employee_payslips').update({ storage_path: storagePath }).eq('id', payslip.id)

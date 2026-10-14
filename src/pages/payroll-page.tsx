@@ -831,7 +831,7 @@ export function PayrollPage() {
                     </div>
                   ) : visibleRecords.length ? (
                     <>
-                      <div className="hidden print:hidden md:block">
+                       <div className="hidden print:hidden 2xl:block">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -922,7 +922,7 @@ export function PayrollPage() {
                           </TableBody>
                         </Table>
                       </div>
-                      <div className="space-y-2 print:hidden md:hidden">
+                       <div className="space-y-2 print:hidden 2xl:hidden">
                         {visibleRecords.map((record) => (
                           <div
                             key={record.id}

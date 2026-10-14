@@ -23,7 +23,7 @@ export function ListPagination({
   onPageSizeChange: (pageSize: number) => void
 }) {
   const selectId = useId()
-  if (total === 0) return null
+  if (total === 0 || pageCount <= 1) return null
 
   return (
     <div className="mt-4 grid min-w-0 gap-3 border-t border-dashed pt-4 text-xs text-muted-foreground print:hidden">

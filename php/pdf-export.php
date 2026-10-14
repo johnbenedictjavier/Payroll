@@ -257,19 +257,18 @@ function money(mixed $value): string
 
 function new_pdf(string $title, string $orientation = 'P'): TCPDF
 {
-    $multiplier = 72 / 2.54 - 2.90;
-    $width = round($multiplier * 8.5);
-    $length = round($multiplier * 11) - 2;
-    $pdf = new TCPDF($orientation, 'mm', [$width, $length], true);
+    $pdf = new TCPDF($orientation, 'mm', 'LETTER', true);
     $pdf->SetCreator('LCC Payroll');
     $pdf->SetAuthor('LCC Payroll');
     $pdf->SetTitle($title);
     $pdf->SetHeaderData('', '', '', '');
     $pdf->setPrintHeader(false);
-    $pdf->setPrintFooter(false);
+    $pdf->setPrintFooter(true);
+    $pdf->setFooterFont(['helvetica', '', 7]);
+    $pdf->setFooterMargin(8);
     $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-    $pdf->SetMargins(12, 12, 12);
-    $pdf->SetAutoPageBreak(true, 12);
+    $pdf->SetMargins(12, 14, 12);
+    $pdf->SetAutoPageBreak(true, 14);
     return $pdf;
 }
 
@@ -290,10 +289,46 @@ function table_header(TCPDF $pdf, array $columns): void
     $pdf->SetFillColor(230, 230, 230);
     $pdf->SetTextColor(20, 30, 45);
     $pdf->SetFont('helvetica', 'B', 8);
-    foreach ($columns as $column) {
-        $pdf->Cell($column[0], 7, $column[1], 1, $column[2] ?? 0, $column[3] ?? 'L', true);
+    foreach ($columns as $index => $column) {
+        $pdf->Cell($column[0], 9, $column[1], 1, $index === count($columns) - 1 ? 1 : 0, $column[3] ?? 'L', true);
     }
     $pdf->SetFont('helvetica', '', 8);
+}
+
+function table_row_height(TCPDF $pdf, array $columns, array $values): float
+{
+    $lines = 1;
+    foreach ($columns as $index => $column) {
+        $lines = max($lines, $pdf->getNumLines((string) ($values[$index] ?? ''), max(8, (float) $column[0] - 4)));
+    }
+    return max(7.5, $lines * 4.6 + 2.5);
+}
+
+function table_row(TCPDF $pdf, array $columns, array $values, bool $strong = false, bool $fill = false): void
+{
+    $height = table_row_height($pdf, $columns, $values);
+    $startX = $pdf->GetX();
+    $startY = $pdf->GetY();
+    $pdf->SetFont('helvetica', $strong ? 'B' : '', 8);
+    if ($fill) $pdf->SetFillColor(245, 248, 249);
+    foreach ($columns as $index => $column) {
+        $width = (float) $column[0];
+        $align = $column[3] ?? (in_array($column[1] ?? null, ['L', 'C', 'R'], true) ? $column[1] : 'L');
+        $pdf->MultiCell($width, $height, (string) ($values[$index] ?? ''), 1, $align, $fill, 0, $startX, $startY, true, 0, false, true, $height, 'M');
+        $startX += $width;
+    }
+    $pdf->SetXY($pdf->GetMargins()['left'], $startY + $height);
+    $pdf->SetFillColor(255, 255, 255);
+}
+
+function table_row_with_header(TCPDF $pdf, array $columns, array $values, array $headerColumns, bool $strong = false, bool $fill = false): void
+{
+    $height = table_row_height($pdf, $columns, $values);
+    if ($pdf->GetY() + $height > $pdf->getPageHeight() - 18) {
+        $pdf->AddPage();
+        table_header($pdf, $headerColumns);
+    }
+    table_row($pdf, $columns, $values, $strong, $fill);
 }
 
 function finish_pdf(TCPDF $pdf, string $filename): never
@@ -337,13 +372,22 @@ function render_directory(array $context): never
 
     $pdf = new_pdf('Employee directory');
     page_heading($pdf, 'Employee directory', date('F d, Y h:i A'));
-    table_header($pdf, [[42, 'Employee', 0], [72, 'Assignment', 0], [48, 'Contact', 0], [28, 'Status', 1, 'C']]);
+    $columns = [[42, 'L'], [72, 'L'], [48, 'L'], [30, 'C']];
+    $headers = [[42, 'Employee', 0], [72, 'Assignment', 0], [48, 'Contact', 0], [30, 'Status', 1, 'C']];
+    table_header($pdf, $headers);
     foreach ($employees as $employee) {
-        $pdf->Cell(42, 7, substr((string) ($employee['employee_number'] ?? '') . ' ' . display_name($employee), 0, 42), 1, 0, 'L');
         $assignment = relation_value($employee, 'position') . ' / ' . relation_value($employee, 'department');
-        $pdf->Cell(72, 7, substr($assignment, 0, 54), 1, 0, 'L');
-        $pdf->Cell(48, 7, substr((string) ($employee['email'] ?? 'No email'), 0, 35), 1, 0, 'L');
-        $pdf->Cell(28, 7, (string) ($employee['status'] ?? ''), 1, 1, 'C');
+        table_row_with_header(
+            $pdf,
+            $columns,
+            [
+                trim((string) ($employee['employee_number'] ?? '') . ' ' . display_name($employee)),
+                $assignment,
+                (string) ($employee['email'] ?? 'No email'),
+                (string) ($employee['status'] ?? ''),
+            ],
+            $headers,
+        );
     }
     $pdf->SetFont('helvetica', 'I', 7);
     $pdf->Ln(4);
@@ -369,7 +413,7 @@ function render_payroll_report(array $context, ?string $periodId): never
         $context['token'],
         '/rest/v1/pms_payroll_records',
         [
-            'select' => 'id,employee_id,gross_pay,total_deductions,net_pay,payroll_period_id,employee:pms_employees(employee_number,first_name,last_name)',
+            'select' => 'id,employee_id,gross_pay,total_deductions,net_pay,employee_contributions,withholding_tax,employer_contributions,payroll_period_id,employee:pms_employees(employee_number,first_name,last_name)',
             'payroll_period_id' => 'in.(' . $periodIds . ')',
             'order' => 'employee_id.asc,id.asc',
         ]
@@ -378,31 +422,39 @@ function render_payroll_report(array $context, ?string $periodId): never
     foreach ($periods as $period) $periodById[(string) $period['id']] = $period;
 
     $pdf = new_pdf('Finalized payroll report', 'L');
-    page_heading($pdf, 'Finalized payroll report', date('F d, Y h:i A'));
-    table_header($pdf, [[62, 'Employee', 0], [55, 'Period', 0], [38, 'Gross', 0, 'R'], [38, 'Deductions', 0, 'R'], [38, 'Net pay', 1, 'R']]);
+    page_heading($pdf, 'Finalized payroll report', ($periodId !== null && $periodId !== '' ? (string) ($periods[0]['name'] ?? 'Selected period') : count($periods) . ' finalized periods') . ' · ' . date('F d, Y h:i A'));
+    $columns = [[50, 'L'], [39, 'L'], [35, 'R'], [45, 'R'], [43, 'R'], [43, 'R']];
+    $headers = [[50, 'Employee', 0], [39, 'Period', 0], [35, 'Gross', 0, 'R'], [45, 'Deductions', 0, 'R'], [43, 'Employer', 0, 'R'], [43, 'Net pay', 1, 'R']];
+    table_header($pdf, $headers);
     $gross = 0.0;
     $deductions = 0.0;
+    $employer = 0.0;
     $net = 0.0;
     foreach ($records as $record) {
         $employee = is_array($record['employee'] ?? null) ? $record['employee'] : [];
         $period = $periodById[(string) ($record['payroll_period_id'] ?? '')] ?? [];
         $gross += (float) ($record['gross_pay'] ?? 0);
         $deductions += (float) ($record['total_deductions'] ?? 0);
+        $employer += (float) ($record['employer_contributions'] ?? 0);
         $net += (float) ($record['net_pay'] ?? 0);
-        $pdf->Cell(62, 7, substr((string) ($employee['employee_number'] ?? '') . ' ' . trim((string) ($employee['last_name'] ?? '') . ', ' . (string) ($employee['first_name'] ?? '')), 0, 62), 1, 0, 'L');
-        $pdf->Cell(55, 7, substr((string) ($period['name'] ?? ''), 0, 32), 1, 0, 'L');
-        $pdf->Cell(38, 7, money($record['gross_pay'] ?? 0), 1, 0, 'R');
-        $pdf->Cell(38, 7, money($record['total_deductions'] ?? 0), 1, 0, 'R');
-        $pdf->Cell(38, 7, money($record['net_pay'] ?? 0), 1, 1, 'R');
+        table_row_with_header(
+            $pdf,
+            $columns,
+            [
+                trim((string) ($employee['employee_number'] ?? '') . ' ' . (string) ($employee['last_name'] ?? '') . ', ' . (string) ($employee['first_name'] ?? '')),
+                (string) ($period['name'] ?? ''),
+                money($record['gross_pay'] ?? 0),
+                money($record['total_deductions'] ?? 0),
+                money($record['employer_contributions'] ?? 0),
+                money($record['net_pay'] ?? 0),
+            ],
+            $headers,
+        );
     }
-    $pdf->SetFont('helvetica', 'B', 8);
-    $pdf->Cell(117, 8, 'TOTAL', 1, 0, 'R', true);
-    $pdf->Cell(38, 8, money($gross), 1, 0, 'R', true);
-    $pdf->Cell(38, 8, money($deductions), 1, 0, 'R', true);
-    $pdf->Cell(38, 8, money($net), 1, 1, 'R', true);
+    table_row_with_header($pdf, $columns, ['TOTAL', '', money($gross), money($deductions), money($employer), money($net)], $headers, true, true);
     $pdf->SetFont('helvetica', 'I', 7);
     $pdf->Ln(4);
-    $pdf->Cell(0, 5, 'Generated from finalized payroll records. Statutory and tax amounts use the approved payroll schedules.', 0, 1, 'L');
+    $pdf->Cell(0, 5, 'Generated from finalized payroll records. Employee deductions include statutory contributions, tax, loans, and approved deductions.', 0, 1, 'L');
     finish_pdf($pdf, 'payroll-report.pdf');
 }
 
@@ -425,30 +477,61 @@ function render_payslip(array $context, string $payslipId): never
 
     $pdf = new_pdf('Employee payslip');
     page_heading($pdf, 'Employee payslip', (string) ($period['name'] ?? 'Payroll period'));
-    $pdf->SetFont('helvetica', 'B', 10);
-    $pdf->Cell(0, 6, 'Employee: ' . trim((string) ($employee['first_name'] ?? '') . ' ' . (string) ($employee['last_name'] ?? '')), 0, 1, 'L');
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell(0, 5, 'Employee number: ' . (string) ($employee['employee_number'] ?? '') . '    Pay date: ' . (string) ($period['pay_date'] ?? 'Not set'), 0, 1, 'L');
+    $pdf->SetFillColor(245, 248, 249);
+    $pdf->SetFont('helvetica', 'B', 9);
+    $pdf->Cell(96, 8, 'Employee: ' . trim((string) ($employee['first_name'] ?? '') . ' ' . (string) ($employee['last_name'] ?? '')), 1, 0, 'L', true);
+    $pdf->Cell(96, 8, 'Employee no.: ' . (string) ($employee['employee_number'] ?? ''), 1, 1, 'L', true);
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell(96, 8, 'Pay date: ' . (string) ($period['pay_date'] ?? 'Not set'), 1, 0, 'L', true);
+    $pdf->Cell(96, 8, 'Status: Published', 1, 1, 'L', true);
+    $pdf->SetFillColor(255, 255, 255);
     $pdf->Ln(5);
-    table_header($pdf, [[130, 'Payroll component', 0], [55, 'Amount', 1, 'R']]);
+
+    $columns = [[130, 'L'], [62, 'R']];
+    $headers = [[130, 'Payroll component', 0], [62, 'Amount', 1, 'R']];
+    table_header($pdf, $headers);
+    $snapshot = is_array($record['calculation_snapshot'] ?? null) ? $record['calculation_snapshot'] : [];
+    $statutory = is_array($snapshot['statutory'] ?? null) ? $snapshot['statutory'] : [];
+    $sss = is_array($statutory['sss'] ?? null) ? $statutory['sss'] : [];
+    $philhealth = is_array($statutory['philhealth'] ?? null) ? $statutory['philhealth'] : [];
+    $pagibig = is_array($statutory['pagibig'] ?? null) ? $statutory['pagibig'] : [];
+    $contributionRows = [
+        ['SSS employee contribution', -((float) ($sss['employee'] ?? 0))],
+        ['PhilHealth employee contribution', -((float) ($philhealth['employee'] ?? 0))],
+        ['Pag-IBIG employee contribution', -((float) ($pagibig['employee'] ?? 0))],
+    ];
+    if (abs(array_sum(array_column($contributionRows, 1))) < 0.005 && (float) ($record['employee_contributions'] ?? 0) > 0) {
+        $contributionRows = [['Employee statutory contributions', -((float) ($record['employee_contributions'] ?? 0))]];
+    }
     $rows = [
-        ['Basic pay', $record['basic_pay'] ?? 0],
+        ['Base pay', $record['base_pay'] ?? $record['basic_pay'] ?? 0],
+        ['Attendance deductions', -((float) ($record['attendance_deductions'] ?? 0))],
+        ['Basic pay after attendance', $record['basic_pay'] ?? 0],
         ['Overtime pay', $record['overtime_pay'] ?? 0],
         ['Other income', $record['other_income'] ?? 0],
-        ['Employee contributions', -((float) ($record['employee_contributions'] ?? 0))],
+        ['Gross pay', $record['gross_pay'] ?? 0],
+        ...$contributionRows,
         ['Withholding tax', -((float) ($record['withholding_tax'] ?? 0))],
         ['Loan deductions', -((float) ($record['loan_deductions'] ?? 0))],
         ['Other deductions', -((float) ($record['other_deductions'] ?? 0))],
-        ['Gross pay', $record['gross_pay'] ?? 0],
         ['Total deductions', -((float) ($record['total_deductions'] ?? 0))],
     ];
     foreach ($rows as [$label, $amount]) {
-        $pdf->Cell(130, 7, (string) $label, 1, 0, 'L');
-        $pdf->Cell(55, 7, money($amount), 1, 1, 'R');
+        table_row_with_header($pdf, $columns, [(string) $label, money($amount)], $headers, in_array($label, ['Gross pay', 'Total deductions'], true));
     }
-    $pdf->SetFont('helvetica', 'B', 11);
-    $pdf->Cell(130, 9, 'NET PAY', 1, 0, 'L', true);
-    $pdf->Cell(55, 9, money($record['net_pay'] ?? 0), 1, 1, 'R', true);
+    table_row_with_header($pdf, $columns, ['NET PAY', money($record['net_pay'] ?? 0)], $headers, true, true);
+    $attendance = is_array($snapshot['attendance'] ?? null) ? $snapshot['attendance'] : [];
+    $pdf->Ln(5);
+    $pdf->SetFillColor(245, 248, 249);
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell(48, 7, 'Employer contributions', 1, 0, 'L', true);
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell(48, 7, money($record['employer_contributions'] ?? 0), 1, 0, 'R', true);
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell(48, 7, 'Attendance', 1, 0, 'L', true);
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell(48, 7, (string) ($attendance['days_worked'] ?? 0) . ' days / ' . (string) ($attendance['overtime_hours'] ?? 0) . ' hrs OT', 1, 1, 'R', true);
+    $pdf->SetFillColor(255, 255, 255);
     $pdf->SetFont('helvetica', 'I', 7);
     $pdf->Ln(5);
     $pdf->Cell(0, 5, 'Private payroll document. Statutory and tax amounts use the approved payroll schedules.', 0, 1, 'L');

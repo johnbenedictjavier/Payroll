@@ -1,9 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1'
+import { PDFDocument, StandardFonts, type PDFPage } from 'npm:pdf-lib@1.17.1'
+import { drawFooter, drawReportHeader, drawTableHeader, drawTableRow, rowHeight, type PdfColumn } from '../_shared/pdf-layout.ts'
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-const text = (value: unknown) => String(value ?? '').replace(/[\r\n]+/g, ' ').trim()
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -29,24 +29,41 @@ Deno.serve(async (request) => {
     const pdf = await PDFDocument.create()
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-    for (let start = 0; start < Math.max(1, rows.length); start += 34) {
-      const page = pdf.addPage([612, 792])
-      const draw = (value: unknown, x: number, y: number, size = 9, strong = false) => page.drawText(text(value).slice(0, 86), { x, y, size, font: strong ? bold : font, color: rgb(0.08, 0.12, 0.2) })
-      draw('LCC PAYROLL', 48, 742, 20, true); draw('Employee directory', 48, 716, 12, true); draw(`Page ${Math.floor(start / 34) + 1}`, 500, 742, 9)
-      page.drawLine({ start: { x: 48, y: 694 }, end: { x: 564, y: 694 }, thickness: 1, color: rgb(0.75, 0.8, 0.85) })
-      draw('Employee', 48, 675, 9, true); draw('Assignment', 250, 675, 9, true); draw('Contact', 400, 675, 9, true); draw('Status', 520, 675, 9, true)
-      let y = 654
-      for (const employee of rows.slice(start, start + 34)) {
-        const department = employee.department as { name?: string } | null
-        const position = employee.position as { name?: string } | null
-        draw(`${employee.employee_number ?? ''} ${employee.last_name ?? ''}, ${employee.first_name ?? ''}`, 48, y)
-        draw(`${position?.name ?? 'Unassigned'} / ${department?.name ?? 'No department'}`, 250, y)
-        draw(employee.email ?? 'No email', 400, y)
-        draw(employee.status ?? '', 520, y)
-        y -= 19
-      }
-      draw('Administrator accounts are excluded from this directory export.', 48, 42, 8)
+    const columns: PdfColumn[] = [
+      { label: 'Employee', width: 190 },
+      { label: 'Assignment', width: 158 },
+      { label: 'Contact', width: 120 },
+      { label: 'Status', width: 58, align: 'center' },
+    ]
+    let page: PDFPage
+    let pageNumber = 0
+    let y = 0
+    const startPage = () => {
+      page = pdf.addPage([612, 792])
+      pageNumber += 1
+      y = drawReportHeader(page, font, bold, 'Employee directory', `${rows.length} employees · Generated ${new Date().toLocaleString('en-PH')}`, pageNumber)
+      y = drawTableHeader(page, bold, columns, 42, y)
     }
+    startPage()
+    if (!rows.length) {
+      y = drawTableRow(page, font, bold, columns, ['No employees found', '', '', ''], 42, y, { size: 8 })
+    }
+    for (const employee of rows) {
+      const department = employee.department as { name?: string } | null
+      const position = employee.position as { name?: string } | null
+      const values = [
+        `${employee.employee_number ?? ''} ${employee.last_name ?? ''}, ${employee.first_name ?? ''}`,
+        `${position?.name ?? 'Unassigned'} / ${department?.name ?? 'No department'}`,
+        employee.email ?? 'No email',
+        employee.status ?? '',
+      ]
+      if (y - rowHeight(columns, values, font, 8) < 52) {
+        drawFooter(page, font, 'Administrator accounts are excluded from this directory export.')
+        startPage()
+      }
+      y = drawTableRow(page, font, bold, columns, values, 42, y, { size: 8 })
+    }
+    drawFooter(page, font, 'Administrator accounts are excluded from this directory export.')
     const bytes = await pdf.save()
     const storagePath = `directories/employees-${crypto.randomUUID()}.pdf`
     const { error: uploadError } = await adminClient.storage.from('pms-exports').upload(storagePath, bytes, { contentType: 'application/pdf', upsert: false })

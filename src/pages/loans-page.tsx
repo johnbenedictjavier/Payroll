@@ -426,7 +426,7 @@ export function LoansPage() {
               </div>
             ) : visibleLoans.length ? (
               <>
-                <div className="hidden md:block">
+                <div className="hidden 2xl:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -456,7 +456,7 @@ export function LoansPage() {
                     </TableBody>
                   </Table>
                 </div>
-                <div className="space-y-3 md:hidden">
+                <div className="space-y-3 2xl:hidden">
                   {loanPagination.pageItems.map((loan) => (
                     <LoanCard
                       key={loan.id}

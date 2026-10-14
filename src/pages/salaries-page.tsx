@@ -305,7 +305,7 @@ export function SalariesPage() {
             </div>
           ) : visibleHistory.length ? (
             <>
-              <div className="hidden md:block">
+               <div className="hidden lg:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -330,7 +330,7 @@ export function SalariesPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="space-y-3 md:hidden">
+               <div className="space-y-3 lg:hidden">
                 {historyPagination.pageItems.map((row) => (
                   <SalaryCard
                     key={row.id}

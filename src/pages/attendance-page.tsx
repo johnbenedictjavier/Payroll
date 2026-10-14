@@ -359,7 +359,7 @@ export function AttendancePage() {
                 />
               ) : (
                 <>
-                  <div className="hidden lg:block">
+                   <div className="hidden xl:block">
                     <AttendanceTable
                       employees={employeePagination.pageItems}
                       draftFor={draftFor}
@@ -371,7 +371,7 @@ export function AttendancePage() {
                       busy={saveMutation.isPending || clearMutation.isPending}
                     />
                   </div>
-                  <div className="space-y-3 lg:hidden">
+                   <div className="space-y-3 xl:hidden">
                     {employeePagination.pageItems.map((employee) => (
                       <AttendanceCard
                         key={employee.id}
