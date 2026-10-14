@@ -95,30 +95,30 @@ begin
     raise exception 'This payroll period cannot be previewed';
   end if;
 
-  select id, parameters, effective_from into v_sss_rule_id, v_sss_parameters, v_sss_effective
-    from public.pms_payroll_statutory_rules
-   where rule_type = 'sss' and status = 'approved'
-     and effective_from <= v_period.end_date
-     and (effective_to is null or effective_to >= v_period.start_date)
-   order by effective_from desc limit 1;
-  select id, parameters, effective_from into v_philhealth_rule_id, v_philhealth_parameters, v_philhealth_effective
-    from public.pms_payroll_statutory_rules
-   where rule_type = 'philhealth' and status = 'approved'
-     and effective_from <= v_period.end_date
-     and (effective_to is null or effective_to >= v_period.start_date)
-   order by effective_from desc limit 1;
-  select id, parameters, effective_from into v_pagibig_rule_id, v_pagibig_parameters, v_pagibig_effective
-    from public.pms_payroll_statutory_rules
-   where rule_type = 'pagibig' and status = 'approved'
-     and effective_from <= v_period.end_date
-     and (effective_to is null or effective_to >= v_period.start_date)
-   order by effective_from desc limit 1;
-  select id, parameters, effective_from into v_tax_rule_id, v_tax_parameters, v_tax_effective
-    from public.pms_payroll_statutory_rules
-   where rule_type = 'withholding_tax' and status = 'approved'
-     and effective_from <= v_period.end_date
-     and (effective_to is null or effective_to >= v_period.start_date)
-   order by effective_from desc limit 1;
+  select rule.id, rule.parameters, rule.effective_from into v_sss_rule_id, v_sss_parameters, v_sss_effective
+    from public.pms_payroll_statutory_rules rule
+   where rule.rule_type = 'sss' and rule.status = 'approved'
+     and rule.effective_from <= v_period.end_date
+     and (rule.effective_to is null or rule.effective_to >= v_period.start_date)
+   order by rule.effective_from desc limit 1;
+  select rule.id, rule.parameters, rule.effective_from into v_philhealth_rule_id, v_philhealth_parameters, v_philhealth_effective
+    from public.pms_payroll_statutory_rules rule
+   where rule.rule_type = 'philhealth' and rule.status = 'approved'
+     and rule.effective_from <= v_period.end_date
+     and (rule.effective_to is null or rule.effective_to >= v_period.start_date)
+   order by rule.effective_from desc limit 1;
+  select rule.id, rule.parameters, rule.effective_from into v_pagibig_rule_id, v_pagibig_parameters, v_pagibig_effective
+    from public.pms_payroll_statutory_rules rule
+   where rule.rule_type = 'pagibig' and rule.status = 'approved'
+     and rule.effective_from <= v_period.end_date
+     and (rule.effective_to is null or rule.effective_to >= v_period.start_date)
+   order by rule.effective_from desc limit 1;
+  select rule.id, rule.parameters, rule.effective_from into v_tax_rule_id, v_tax_parameters, v_tax_effective
+    from public.pms_payroll_statutory_rules rule
+   where rule.rule_type = 'withholding_tax' and rule.status = 'approved'
+     and rule.effective_from <= v_period.end_date
+     and (rule.effective_to is null or rule.effective_to >= v_period.start_date)
+   order by rule.effective_from desc limit 1;
   if v_sss_rule_id is null or v_philhealth_rule_id is null or v_pagibig_rule_id is null or v_tax_rule_id is null then
     raise exception 'Approved statutory rules are not available for this payroll period';
   end if;
@@ -334,11 +334,11 @@ begin
     raise exception 'The finalization key has already been used for another payroll period';
   end if;
 
-  for lock_row in select id from public.pms_employees where status = 'active' order by id for update loop null; end loop;
-  for lock_row in select id from public.pms_employee_salary_history salary where exists (select 1 from public.pms_employees employee where employee.id = salary.employee_id and employee.status = 'active') and salary.effective_from <= period_row.end_date and (salary.effective_to is null or salary.effective_to >= period_row.start_date) order by salary.employee_id, salary.effective_from desc, salary.id for update loop null; end loop;
-  for lock_row in select id from public.pms_employee_attendance where payroll_period_id = p_payroll_period_id order by id for update loop null; end loop;
-  for lock_row in select id from public.pms_other_income where payroll_period_id = p_payroll_period_id order by id for update loop null; end loop;
-  for lock_row in select id from public.pms_other_deductions where payroll_period_id = p_payroll_period_id order by id for update loop null; end loop;
+  for lock_row in select employee.id from public.pms_employees employee where employee.status = 'active' order by employee.id for update loop null; end loop;
+  for lock_row in select salary.id from public.pms_employee_salary_history salary where exists (select 1 from public.pms_employees employee where employee.id = salary.employee_id and employee.status = 'active') and salary.effective_from <= period_row.end_date and (salary.effective_to is null or salary.effective_to >= period_row.start_date) order by salary.employee_id, salary.effective_from desc, salary.id for update loop null; end loop;
+  for lock_row in select attendance.id from public.pms_employee_attendance attendance where attendance.payroll_period_id = p_payroll_period_id order by attendance.id for update loop null; end loop;
+  for lock_row in select income.id from public.pms_other_income income where income.payroll_period_id = p_payroll_period_id order by income.id for update loop null; end loop;
+  for lock_row in select deduction.id from public.pms_other_deductions deduction where deduction.payroll_period_id = p_payroll_period_id order by deduction.id for update loop null; end loop;
   for lock_row in select loan.id from public.pms_employee_loans loan where loan.status = 'active' and exists (select 1 from public.pms_employees employee where employee.id = loan.employee_id and employee.status = 'active') order by loan.id for update loop null; end loop;
 
   update public.pms_payroll_periods set status = 'processing' where id = p_payroll_period_id;
