@@ -93,6 +93,7 @@ type SalaryForm = {
   effective_to: string;
   source: string;
   is_approved: boolean;
+  updated_at?: string;
 };
 type FormState = {
   employee: {
@@ -296,6 +297,7 @@ function formFromProfile(data: EmployeeProfileData): FormState {
       effective_to: item.effective_to ?? "",
       source: item.source ?? "",
       is_approved: item.is_approved,
+      updated_at: item.updated_at,
     })),
   };
 }
@@ -364,7 +366,18 @@ export function EmployeeProfilePage() {
       );
       if (Object.keys(validationErrors).length > 0)
         throw new FormValidationError(validationErrors);
-      const payload = toPayload(form, isNew);
+      const currentSalaryIds = new Set(
+        form.salary_history.flatMap((salary) => (salary.id ? [salary.id] : [])),
+      );
+      const salaryHistoryRemovals = isNew
+        ? []
+        : (profile.data?.salary_history ?? [])
+            .filter((salary) => !currentSalaryIds.has(salary.id))
+            .map((salary) => ({
+              id: salary.id,
+              updated_at: salary.updated_at,
+            }));
+      const payload = toPayload(form, isNew, salaryHistoryRemovals);
       const employeeId = await saveEmployeeProfile(
         payload,
         isNew ? undefined : id,
@@ -1669,7 +1682,11 @@ export function EmployeeProfilePage() {
   );
 }
 
-function toPayload(form: FormState, isNew: boolean): EmployeeProfilePayload {
+function toPayload(
+  form: FormState,
+  isNew: boolean,
+  salaryHistoryRemovals: EmployeeProfilePayload["salary_history_removals"] = [],
+): EmployeeProfilePayload {
   const primary = form.assignments.find((item) => item.is_primary);
   return {
     employee: {
@@ -1713,7 +1730,9 @@ function toPayload(form: FormState, isNew: boolean): EmployeeProfilePayload {
         effective_to: item.effective_to || null,
         source: item.source.trim() || null,
         is_approved: item.is_approved,
+        updated_at: item.updated_at,
       })),
+    salary_history_removals: salaryHistoryRemovals,
   };
 }
 

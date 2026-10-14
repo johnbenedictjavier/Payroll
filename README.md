@@ -20,11 +20,13 @@ For local XAMPP PDF generation, set the optional `VITE_PHP_PDF_URL` value to the
 
 The browser must only receive the Supabase publishable key. Service-role credentials are for trusted migration scripts and Supabase Edge Functions only.
 
+Active employee loan installments are authorized payroll deductions. They are estimated during preview and posted once during finalization; marking payroll paid does not apply a second deduction.
+
 To export the live legacy database without exporting passwords, run `C:\xampp\php\php.exe scripts\migration\export_live.php`. The trusted Supabase importer requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` and should only be run after reviewing `migration-output/live-source.json`.
 
 ## Database
 
-Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Payroll uses built-in calculation defaults and does not require policy or statutory schedules for calculation; the optional statutory reference register is informational only.
+Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Payroll uses built-in prototype calculation defaults and does not require policy or statutory schedules for calculation; the optional statutory reference register is informational only. Do not use these results for actual Philippine salary disbursement until applicable statutory deductions have been implemented and validated.
 
 ## Deployment
 

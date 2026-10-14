@@ -269,6 +269,9 @@ export function EmployeePayslipsPage() {
         title="My payslips"
         description="Download published payslips through an authenticated, short-lived link."
       />
+      <Alert variant="warning" className="mb-6">
+        These are prototype payslips. Statutory contributions and withholding tax are not applied; the system must be validated for Philippine payroll compliance before actual salary disbursement.
+      </Alert>
       {error && (
         <Alert variant="danger" className="mb-6">
           {error}

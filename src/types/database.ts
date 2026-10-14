@@ -167,6 +167,10 @@ export interface EmployeeProfilePayload {
     amount: number
     effective_from: string
   }>
+  salary_history_removals?: Array<{
+    id: string
+    updated_at: string
+  }>
 }
 
 export interface SalaryHistory {
@@ -180,6 +184,7 @@ export interface SalaryHistory {
   effective_to: string | null
   source: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface PayrollPeriod {

@@ -302,7 +302,7 @@ export function PayrollPage() {
       ? {
           title: "Finalize payroll?",
           description:
-            "This creates immutable payroll records and loan repayment transactions.",
+            "This creates immutable payroll records and applies the calculated loan repayment transactions. Statutory deductions remain zero in prototype mode.",
           button: "Finalize payroll",
           variant: "primary" as const,
         }
@@ -310,14 +310,14 @@ export function PayrollPage() {
         ? {
             title: "Mark payroll as paid?",
             description:
-              "This records the pay cycle as paid. Confirm that the bank or cash disbursement is complete.",
+              "Prototype warning: this records the pay cycle as paid, but does not confirm compliant Philippine payroll. Confirm that the bank or cash disbursement is complete.",
             button: "Mark as paid",
             variant: "primary" as const,
           }
         : {
             title: "Publish payslips?",
             description:
-              "Employees will be notified that their payslips are available.",
+              "Employees will be notified that their prototype payslips are available. Applicable statutory deductions must be implemented and validated before actual Philippine salary disbursement.",
             button: "Publish payslips",
             variant: "primary" as const,
           };
@@ -329,6 +329,9 @@ export function PayrollPage() {
         title="Payroll processing"
         description="Move each period from preparation to review, finalization, payment, and payslip publication."
       />
+      <Alert variant="warning" className="mb-6">
+        <strong>Prototype payroll:</strong> regular earnings, overtime, other income, attendance deductions, employee loans, and approved other deductions are calculated. SSS, PhilHealth, Pag-IBIG, and withholding tax are not applied. Do not use this workflow for actual Philippine salary disbursement until applicable statutory deductions are implemented and validated.
+      </Alert>
       <div className="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
         <Card className="h-fit xl:sticky xl:top-24">
           <CardHeader className="gap-4">
@@ -661,6 +664,7 @@ export function PayrollPage() {
                               <TableHead>Employee</TableHead>
                               <TableHead>Basic pay</TableHead>
                               <TableHead>Gross</TableHead>
+                              <TableHead>Loan</TableHead>
                               <TableHead>Deductions</TableHead>
                               <TableHead className="text-right">
                                 Net pay
@@ -695,6 +699,9 @@ export function PayrollPage() {
                                 </TableCell>
                                 <TableCell className="money">
                                   {formatCurrency(record.gross_pay)}
+                                </TableCell>
+                                <TableCell className="money">
+                                  {formatCurrency(record.loan_deductions)}
                                 </TableCell>
                                 <TableCell className="money">
                                   {formatCurrency(record.total_deductions)}
@@ -736,7 +743,7 @@ export function PayrollPage() {
                                 {formatCurrency(record.net_pay)}
                               </div>
                             </div>
-                            <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-3 text-xs">
+                            <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3 text-xs sm:grid-cols-4">
                               <div>
                                 <div className="text-muted-foreground">
                                   Basic
@@ -759,6 +766,14 @@ export function PayrollPage() {
                                 </div>
                                 <div className="money mt-1 font-semibold">
                                   {formatCurrency(record.total_deductions)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">
+                                  Loan repayment
+                                </div>
+                                <div className="money mt-1 font-semibold">
+                                  {formatCurrency(record.loan_deductions)}
                                 </div>
                               </div>
                             </div>
@@ -802,7 +817,8 @@ export function PayrollPage() {
                   <CardTitle>Control record</CardTitle>
                   <CardDescription>
                     Finalization creates an immutable audit snapshot and loan
-                    repayment transaction.
+                    repayment transaction. The loan balance decreases at
+                    finalization, not again when payroll is marked paid.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-3 text-sm sm:grid-cols-3">

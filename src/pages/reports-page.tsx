@@ -160,7 +160,7 @@ export function ReportsPage() {
       <PageHeading
         eyebrow="Insights"
         title="Reports and analytics"
-        description="Review finalized payroll records using real database transactions. Draft calculations are never presented as historical reports."
+        description="Review finalized prototype payroll records using real database transactions. Draft calculations are never presented as historical reports, and statutory/tax deductions remain zero."
       />
       <Card className="mb-6 print:hidden">
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">

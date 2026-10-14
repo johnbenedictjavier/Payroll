@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileCheck2, LockKeyhole } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeading } from "@/components/layout/page-heading";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -63,8 +64,15 @@ export function AdminSettingsPage() {
       <PageHeading
         eyebrow="Administration"
         title="System settings"
-        description="Payroll uses standard built-in calculation rules. Manage administrator account security here."
+        description="Payroll uses fixed prototype calculation rules. Manage administrator account security here."
       />
+
+      <Alert variant="warning" className="mb-6 max-w-xl">
+        Prototype payroll is for development testing only. SSS, PhilHealth,
+        Pag-IBIG, and withholding tax are not calculated, so this system is not
+        compliant for Philippine salary disbursement until a future statutory
+        module is implemented and validated.
+      </Alert>
 
       <Card className="mb-6 max-w-xl">
         <CardHeader>

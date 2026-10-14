@@ -279,7 +279,7 @@ export function LoansPage() {
       <PageHeading
         eyebrow="Employee finance"
         title="Loans"
-        description="Track outstanding balances and set the deduction order used during payroll finalization."
+        description="Track outstanding balances and set the deduction order used during payroll finalization. Preview estimates each installment; finalization posts the repayment and reduces the balance."
         actions={
           <ActionGroup>
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => {

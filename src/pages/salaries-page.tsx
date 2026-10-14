@@ -3,10 +3,12 @@ import {
   CalendarRange,
   Check,
   CircleDollarSign,
+  Edit3,
   Printer,
   Plus,
   Search,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/layout/page-heading";
@@ -41,8 +43,10 @@ import { usePagination } from "@/lib/use-pagination";
 import {
   approveSalaryHistory,
   createSalaryHistory,
+  deleteSalaryHistory,
   listEmployees,
   listSalaryHistory,
+  updateSalaryHistory,
 } from "@/services/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -56,6 +60,8 @@ type SalaryForm = {
 };
 type SalaryRecord = {
   id: string;
+  employee_id: string;
+  assignment_id: string | null;
   employee?: {
     employee_number: string;
     first_name: string;
@@ -67,6 +73,8 @@ type SalaryRecord = {
   effective_from: string;
   effective_to: string | null;
   is_approved: boolean;
+  source: string | null;
+  updated_at: string;
 };
 const blank: SalaryForm = {
   employee_id: "",
@@ -89,9 +97,11 @@ export function SalariesPage() {
   });
   const [form, setForm] = useState(blank);
   const [open, setOpen] = useState(false);
+  const [editingSalary, setEditingSalary] = useState<SalaryRecord | null>(null);
   const [approvalTarget, setApprovalTarget] = useState<SalaryRecord | null>(
     null,
   );
+  const [deleteTarget, setDeleteTarget] = useState<SalaryRecord | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [approvalFilter, setApprovalFilter] = useState<
@@ -122,24 +132,40 @@ export function SalariesPage() {
     .filter((row) => row.is_approved && row.salary_type === "monthly")
     .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createSalaryHistory({
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const values = {
         ...form,
         amount: Number(form.amount),
         effective_to: form.effective_to || undefined,
-        is_approved: true,
-      }),
+        assignment_id: editingSalary?.assignment_id ?? null,
+        is_approved: editingSalary?.is_approved ?? true,
+        updated_at: editingSalary?.updated_at ?? null,
+      };
+      return editingSalary
+        ? updateSalaryHistory(editingSalary.id, values)
+        : createSalaryHistory(values);
+    },
     onSuccess: () => {
       setOpen(false);
+      setEditingSalary(null);
       setForm(blank);
       void queryClient.invalidateQueries({ queryKey: ["salary-history"] });
     },
     onError: (errorValue) => setError((errorValue as Error).message),
   });
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteSalaryHistory(deleteTarget!.id, deleteTarget!.updated_at),
+    onSuccess: () => {
+      setDeleteTarget(null);
+      setError("");
+      void queryClient.invalidateQueries({ queryKey: ["salary-history"] });
+    },
+    onError: (errorValue) => setError((errorValue as Error).message),
+  });
   const approveMutation = useMutation({
-    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
-      approveSalaryHistory(id, approved),
+    mutationFn: ({ id, approved, updatedAt }: { id: string; approved: boolean; updatedAt: string }) =>
+      approveSalaryHistory(id, approved, updatedAt),
     onSuccess: () => {
       setApprovalTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["salary-history"] });
@@ -154,7 +180,35 @@ export function SalariesPage() {
       setError("Employee, positive amount, and effective date are required.");
       return;
     }
-    createMutation.mutate();
+    saveMutation.mutate();
+  }
+
+  function openCreateDialog() {
+    setError("");
+    setEditingSalary(null);
+    setForm(blank);
+    setOpen(true);
+  }
+
+  function openEditDialog(row: SalaryRecord) {
+    setError("");
+    setEditingSalary(row);
+    setForm({
+      employee_id: row.employee_id,
+      salary_type: row.salary_type as SalaryForm["salary_type"],
+      amount: String(row.amount),
+      effective_from: row.effective_from,
+      effective_to: row.effective_to ?? "",
+      source: row.source ?? "Administrator configuration",
+    });
+    setOpen(true);
+  }
+
+  function closeSalaryDialog() {
+    if (saveMutation.isPending) return;
+    setOpen(false);
+    setEditingSalary(null);
+    setForm(blank);
   }
 
   return (
@@ -162,14 +216,10 @@ export function SalariesPage() {
       <PageHeading
         eyebrow="Compensation"
         title="Salary configuration"
-        description="Manage effective-dated compensation and keep approved salary records ready for payroll."
+        description="Manage effective-dated compensation and keep approved salary records ready for prototype payroll."
         actions={
           <ActionGroup>
-            <Button className="w-full sm:w-auto" onClick={() => {
-              setError("");
-              setForm(blank);
-              setOpen(true);
-            }}>
+            <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
               <Plus className="h-4 w-4" />
               Add salary configuration
             </Button>
@@ -180,6 +230,9 @@ export function SalariesPage() {
           </ActionGroup>
         }
       />
+      <Alert variant="warning" className="mb-6">
+        Salary values feed the prototype payroll calculation. Statutory contributions and withholding tax remain zero until a compliant future module is implemented and validated.
+      </Alert>
       {error && (
         <Alert variant="danger" className="mb-6">
           {error}
@@ -272,6 +325,8 @@ export function SalariesPage() {
                         key={row.id}
                         row={row}
                         onApprove={() => setApprovalTarget(row)}
+                        onEdit={() => openEditDialog(row)}
+                        onDelete={() => setDeleteTarget(row)}
                       />
                     ))}
                   </TableBody>
@@ -283,6 +338,8 @@ export function SalariesPage() {
                     key={row.id}
                     row={row}
                     onApprove={() => setApprovalTarget(row)}
+                    onEdit={() => openEditDialog(row)}
+                    onDelete={() => setDeleteTarget(row)}
                   />
                 ))}
               </div>
@@ -313,11 +370,9 @@ export function SalariesPage() {
 
       <Dialog
         open={open}
-        onClose={() => {
-          if (!createMutation.isPending) setOpen(false);
-        }}
-        title="Add salary configuration"
-        description="New administrator configurations are approved immediately. Imported values can be reviewed separately."
+        onClose={closeSalaryDialog}
+        title={editingSalary ? "Edit salary configuration" : "Add salary configuration"}
+        description={editingSalary ? "Changes affect future previews only. Finalized payroll snapshots remain protected." : "New administrator configurations are approved immediately. Imported values can be reviewed separately."}
       >
         <form onSubmit={submit} className="space-y-5">
           {error && <Alert variant="danger">{error}</Alert>}
@@ -327,6 +382,7 @@ export function SalariesPage() {
               id="salary-employee"
               className="h-10 w-full rounded-lg border bg-background px-3 text-sm"
               value={form.employee_id}
+              disabled={Boolean(editingSalary)}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
@@ -418,14 +474,14 @@ export function SalariesPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={createMutation.isPending}
-              onClick={() => setOpen(false)}
+              disabled={saveMutation.isPending}
+              onClick={closeSalaryDialog}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              loading={createMutation.isPending}
+              loading={saveMutation.isPending}
               loadingLabel="Saving..."
             >
               Save salary
@@ -438,7 +494,11 @@ export function SalariesPage() {
         onClose={() => setApprovalTarget(null)}
         onConfirm={() => {
           if (approvalTarget)
-            approveMutation.mutate({ id: approvalTarget.id, approved: true });
+            approveMutation.mutate({
+              id: approvalTarget.id,
+              approved: true,
+              updatedAt: approvalTarget.updated_at,
+            });
         }}
         title="Approve salary record?"
         description="This effective-dated salary can be used by the payroll preview when its dates match the pay period."
@@ -460,6 +520,30 @@ export function SalariesPage() {
           </div>
         </div>
       </ConfirmationDialog>
+      <ConfirmationDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteMutation.mutate()}
+        title="Delete salary configuration?"
+        description="Only salary configurations that are not used by payroll can be deleted. Existing payroll snapshots are preserved."
+        confirmLabel="Delete salary"
+        variant="danger"
+        loading={deleteMutation.isPending}
+      >
+        <div className="rounded-lg bg-secondary/60 p-4">
+          <div className="font-semibold">
+            {deleteTarget?.employee
+              ? `${deleteTarget.employee.first_name} ${deleteTarget.employee.last_name}`
+              : "Employee"}
+          </div>
+          <div className="money mt-1 text-xl font-black">
+            {formatCurrency(deleteTarget?.amount)}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Effective {deleteTarget ? formatDate(deleteTarget.effective_from) : ""}
+          </div>
+        </div>
+      </ConfirmationDialog>
     </div>
   );
 }
@@ -467,9 +551,13 @@ export function SalariesPage() {
 function SalaryRow({
   row,
   onApprove,
+  onEdit,
+  onDelete,
 }: {
   row: SalaryRecord;
   onApprove: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <TableRow className="data-row-in">
@@ -508,12 +596,22 @@ function SalaryRow({
         </Badge>
       </TableCell>
       <TableCell className="text-right">
-        {!row.is_approved && (
-          <Button size="sm" variant="outline" onClick={onApprove}>
-            <Check className="h-4 w-4" />
-            Approve
+        <ActionGroup className="sm:w-auto sm:justify-end">
+          <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onEdit}>
+            <Edit3 className="h-4 w-4" />
+            Edit
           </Button>
-        )}
+          <Button size="sm" variant="danger" className="w-full sm:w-auto" onClick={onDelete}>
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+          {!row.is_approved && (
+            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={onApprove}>
+              <Check className="h-4 w-4" />
+              Approve
+            </Button>
+          )}
+        </ActionGroup>
       </TableCell>
     </TableRow>
   );
@@ -522,9 +620,13 @@ function SalaryRow({
 function SalaryCard({
   row,
   onApprove,
+  onEdit,
+  onDelete,
 }: {
   row: SalaryRecord;
   onApprove: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="data-row-in rounded-lg border p-4">
@@ -558,12 +660,22 @@ function SalaryCard({
         {formatDate(row.effective_from)} to{" "}
         {row.effective_to ? formatDate(row.effective_to) : "current"}
       </div>
-      {!row.is_approved && (
-        <Button className="mt-4 w-full" variant="outline" onClick={onApprove}>
-          <Check className="h-4 w-4" />
-          Approve salary
+      <ActionGroup className="mt-4 sm:justify-start">
+        <Button className="w-full sm:w-auto" variant="outline" onClick={onEdit}>
+          <Edit3 className="h-4 w-4" />
+          Edit
         </Button>
-      )}
+        <Button className="w-full sm:w-auto" variant="danger" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </Button>
+        {!row.is_approved && (
+          <Button className="w-full sm:w-auto" variant="outline" onClick={onApprove}>
+            <Check className="h-4 w-4" />
+            Approve salary
+          </Button>
+        )}
+      </ActionGroup>
     </div>
   );
 }

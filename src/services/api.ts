@@ -326,14 +326,57 @@ export async function listSalaryHistory() {
   return data ?? []
 }
 
-export async function createSalaryHistory(values: { employee_id: string; salary_type: 'monthly' | 'daily' | 'hourly'; amount: number; effective_from: string; effective_to?: string; is_approved: boolean; source?: string }) {
-  const { data, error } = await supabase.from('pms_employee_salary_history').insert({ ...values, effective_to: values.effective_to || null, source: values.source || 'administrator configuration' }).select().single()
+type SalaryConfigurationValues = {
+  employee_id: string
+  assignment_id?: string | null
+  salary_type: 'monthly' | 'daily' | 'hourly'
+  amount: number
+  effective_from: string
+  effective_to?: string | null
+  is_approved: boolean
+  source?: string | null
+  updated_at?: string | null
+}
+
+function salaryConfigurationPayload(values: SalaryConfigurationValues) {
+  return {
+    employee_id: values.employee_id,
+    assignment_id: values.assignment_id || null,
+    salary_type: values.salary_type,
+    amount: values.amount,
+    effective_from: values.effective_from,
+    effective_to: values.effective_to || null,
+    is_approved: values.is_approved,
+    source: values.source?.trim() || 'Administrator configuration',
+    expected_updated_at: values.updated_at || null,
+  }
+}
+
+export async function createSalaryHistory(values: SalaryConfigurationValues) {
+  const { data, error } = await supabase.rpc('pms_save_salary_configuration', {
+    p_salary_id: null,
+    p_values: salaryConfigurationPayload(values),
+  })
   throwIfError(error)
   return data
 }
 
-export async function approveSalaryHistory(id: string, isApproved: boolean) {
-  const { data, error } = await supabase.from('pms_employee_salary_history').update({ is_approved: isApproved }).eq('id', id).select().single()
+export async function updateSalaryHistory(id: string, values: SalaryConfigurationValues) {
+  const { data, error } = await supabase.rpc('pms_save_salary_configuration', {
+    p_salary_id: id,
+    p_values: salaryConfigurationPayload(values),
+  })
+  throwIfError(error)
+  return data
+}
+
+export async function deleteSalaryHistory(id: string, expectedUpdatedAt: string) {
+  const { error } = await supabase.rpc('pms_delete_salary_configuration', { p_salary_id: id, p_expected_updated_at: expectedUpdatedAt })
+  throwIfError(error)
+}
+
+export async function approveSalaryHistory(id: string, isApproved: boolean, expectedUpdatedAt: string) {
+  const { data, error } = await supabase.rpc('pms_set_salary_approval', { p_salary_id: id, p_is_approved: isApproved, p_expected_updated_at: expectedUpdatedAt })
   throwIfError(error)
   return data
 }

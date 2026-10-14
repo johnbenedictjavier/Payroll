@@ -451,7 +451,7 @@ function render_payslip(array $context, string $payslipId): never
     $pdf->Cell(55, 9, money($record['net_pay'] ?? 0), 1, 1, 'R', true);
     $pdf->SetFont('helvetica', 'I', 7);
     $pdf->Ln(5);
-    $pdf->Cell(0, 5, 'Generated from finalized payroll records. Keep this document private.', 0, 1, 'L');
+    $pdf->Cell(0, 5, 'Prototype payroll document: statutory and tax deductions remain fixed at zero. Keep this document private.', 0, 1, 'L');
     finish_pdf($pdf, 'payslip-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $payslipId) . '.pdf');
 }
 
