@@ -15,6 +15,7 @@ import {
   listPayslips,
 } from "@/services/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { openDocumentUrl } from "@/lib/open-document";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { PrintReport } from "@/components/ui/print-report";
 import {
   Table,
   TableBody,
@@ -62,8 +64,9 @@ export function EmployeeAttendancePage() {
         eyebrow="Employee portal"
         title="My attendance"
         description="Review the attendance records associated with your payroll periods."
+        actions={<Button variant="outline" onClick={() => window.print()}>Print register</Button>}
       />
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>Attendance history</CardTitle>
           <CardDescription>
@@ -133,6 +136,12 @@ export function EmployeeAttendancePage() {
           ) : null}
         </CardContent>
       </Card>
+      <PrintReport title="My attendance" subtitle={`${attendance.data?.length ?? 0} attendance records`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Period</th><th>Days worked</th><th>Absences</th><th>Tardiness</th><th>Undertime</th><th>Overtime</th></tr></thead>
+          <tbody>{(attendance.data ?? []).map((record) => { const period = periods.data?.find((item) => item.id === record.payroll_period_id); return <tr key={`print-my-attendance-${record.id}`}><td>{period?.name ?? "Payroll period"}</td><td>{record.days_worked}</td><td>{record.absence_days}</td><td>{record.tardiness_minutes} min</td><td>{record.undertime_minutes} min</td><td>{record.overtime_hours} hrs</td></tr> })}</tbody>
+        </table>
+      </PrintReport>
     </div>
   );
 }
@@ -153,8 +162,9 @@ export function EmployeePayrollPage() {
         eyebrow="Employee portal"
         title="My payroll"
         description="View finalized payroll calculations and their component totals."
+        actions={<Button variant="outline" onClick={() => window.print()}>Print payroll</Button>}
       />
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>Payroll history</CardTitle>
           <CardDescription>
@@ -234,6 +244,12 @@ export function EmployeePayrollPage() {
           ) : null}
         </CardContent>
       </Card>
+      <PrintReport title="My payroll" subtitle={`${payroll.data?.length ?? 0} published payroll records`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Period</th><th>Basic pay</th><th>Gross pay</th><th>Deductions</th><th>Net pay</th></tr></thead>
+          <tbody>{(payroll.data ?? []).map((record) => { const period = periods.data?.find((item) => item.id === record.payroll_period_id); return <tr key={`print-my-payroll-${record.id}`}><td>{period?.name ?? "Payroll record"}</td><td className="money">{formatCurrency(record.basic_pay)}</td><td className="money">{formatCurrency(record.gross_pay)}</td><td className="money">{formatCurrency(record.total_deductions)}</td><td className="money font-bold">{formatCurrency(record.net_pay)}</td></tr> })}</tbody>
+        </table>
+      </PrintReport>
     </div>
   );
 }
@@ -245,13 +261,15 @@ export function EmployeePayslipsPage() {
   });
   const [error, setError] = useState("");
   const [loadingId, setLoadingId] = useState("");
+  const [readyUrl, setReadyUrl] = useState("");
   const payslipPagination = usePagination(payslips.data ?? []);
   async function download(id: string) {
     setError("");
+    setReadyUrl("");
     setLoadingId(id);
     try {
       const url = await getPayslipUrl(id);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (!openDocumentUrl(url)) setReadyUrl(url);
     } catch (downloadError) {
       setError(
         downloadError instanceof Error
@@ -268,16 +286,19 @@ export function EmployeePayslipsPage() {
         eyebrow="Employee portal"
         title="My payslips"
         description="Download published payslips through an authenticated, short-lived link."
+        actions={<Button variant="outline" onClick={() => window.print()}>Print register</Button>}
       />
-      <Alert variant="warning" className="mb-6">
-        These are prototype payslips. Statutory contributions and withholding tax are not applied; the system must be validated for Philippine payroll compliance before actual salary disbursement.
-      </Alert>
       {error && (
         <Alert variant="danger" className="mb-6">
           {error}
         </Alert>
       )}
-      <Card>
+      {readyUrl && (
+        <Alert className="mb-6">
+          The browser blocked the new tab. <a className="font-bold text-primary underline" href={readyUrl} target="_blank" rel="noopener noreferrer">Open the generated payslip</a>.
+        </Alert>
+      )}
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>Published payslips</CardTitle>
           <CardDescription>
@@ -342,6 +363,12 @@ export function EmployeePayslipsPage() {
           ) : null}
         </CardContent>
       </Card>
+      <PrintReport title="My payslips" subtitle={`${payslips.data?.length ?? 0} published payslips`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Payroll period</th><th>Published</th><th>Status</th></tr></thead>
+          <tbody>{(payslips.data ?? []).map((payslip) => <tr key={`print-my-payslip-${payslip.id}`}><td>{payslip.payroll_period?.name ?? "Payslip"}</td><td>{payslip.published_at ? formatDate(payslip.published_at.slice(0, 10)) : "Not published"}</td><td>{payslip.published_at ? "Published" : "Pending"}</td></tr>)}</tbody>
+        </table>
+      </PrintReport>
     </div>
   );
 }

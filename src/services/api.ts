@@ -20,6 +20,7 @@ import type {
   OtherTransaction,
   PayrollPeriod,
   PayrollRecord,
+  PayrollRecordItem,
   Position,
   Profile,
   ProfileChangeRequest,
@@ -544,12 +545,73 @@ export async function updateOtherTransactionStatus(kind: 'income' | 'deduction',
   return data as OtherTransaction
 }
 
+export async function updateOtherTransaction(
+  kind: 'income' | 'deduction',
+  id: string,
+  values: { transaction_type: string; amount: number; description?: string | null; updated_at?: string },
+) {
+  const { data, error } = await supabase.rpc('pms_update_other_transaction', {
+    p_kind: kind,
+    p_transaction_id: id,
+    p_transaction_type: values.transaction_type,
+    p_amount: values.amount,
+    p_description: values.description || null,
+    p_expected_updated_at: values.updated_at || null,
+  })
+  throwIfError(error)
+  return data as OtherTransaction
+}
+
+export async function deleteOtherTransaction(kind: 'income' | 'deduction', id: string) {
+  const { error } = await supabase.rpc('pms_delete_other_transaction', {
+    p_kind: kind,
+    p_transaction_id: id,
+  })
+  throwIfError(error)
+}
+
 export async function listPayrollRecords(periodId?: string) {
   let query = supabase.from('pms_payroll_records').select('*, employee:pms_employees(id,employee_number,first_name,last_name,photo_path)').order('created_at', { ascending: false })
   if (periodId) query = query.eq('payroll_period_id', periodId)
   const { data, error } = await query
   throwIfError(error)
-  return (data ?? []) as PayrollRecord[]
+  const records = (data ?? []) as PayrollRecord[]
+  if (!records.length) return records
+  const recordIds = records.map((record) => record.id)
+  const periodIds = [...new Set(records.map((record) => record.payroll_period_id))]
+  const [{ data: itemRows, error: itemError }, { data: attendanceRows, error: attendanceError }] = await Promise.all([
+    supabase.from('pms_payroll_record_items').select('*').in('payroll_record_id', recordIds).order('created_at'),
+    supabase.from('pms_employee_attendance').select('*').in('payroll_period_id', periodIds),
+  ])
+  throwIfError(itemError)
+  throwIfError(attendanceError)
+  const itemsByRecord = new Map<string, PayrollRecordItem[]>()
+  for (const item of (itemRows ?? []) as PayrollRecordItem[]) {
+    const list = itemsByRecord.get(item.payroll_record_id || '') ?? []
+    list.push(item)
+    if (item.payroll_record_id) itemsByRecord.set(item.payroll_record_id, list)
+  }
+  return records.map((record) => ({
+    ...record,
+    items: itemsByRecord.get(record.id) ?? [],
+    attendance: ((attendanceRows ?? []) as Attendance[]).find(
+      (attendance) => attendance.payroll_period_id === record.payroll_period_id && attendance.employee_id === record.employee_id,
+    ) ?? null,
+  }))
+}
+
+function snapshotAttendance(snapshot: Record<string, unknown> | undefined) {
+  const raw = snapshot?.attendance
+  if (!raw || typeof raw !== 'object') return null
+  const values = raw as Record<string, unknown>
+  return {
+    days_worked: Number(values.days_worked || 0),
+    absence_days: Number(values.absence_days || 0),
+    tardiness_minutes: Number(values.tardiness_minutes || 0),
+    undertime_minutes: Number(values.undertime_minutes || 0),
+    overtime_hours: Number(values.overtime_hours || 0),
+    notes: typeof values.notes === 'string' ? values.notes : null,
+  }
 }
 
 export async function previewPayroll(periodId: string) {
@@ -557,14 +619,20 @@ export async function previewPayroll(periodId: string) {
   throwIfError(error)
   const records = (data ?? []) as PayrollRecord[]
   const employeeIds = [...new Set(records.map((record) => record.employee_id))]
-  if (!employeeIds.length) return records
+  if (!employeeIds.length) {
+    return records.map((record) => ({ ...record, attendance: snapshotAttendance(record.calculation_snapshot) })) as PayrollRecord[]
+  }
   const { data: employees, error: employeeError } = await supabase
     .from('pms_employees')
     .select('id,employee_number,first_name,last_name,photo_path')
     .in('id', employeeIds)
   throwIfError(employeeError)
   const employeeById = new Map((employees ?? []).map((employee) => [employee.id, employee]))
-  return records.map((record) => ({ ...record, employee: employeeById.get(record.employee_id) })) as PayrollRecord[]
+  return records.map((record) => ({
+    ...record,
+    employee: employeeById.get(record.employee_id),
+    attendance: snapshotAttendance(record.calculation_snapshot),
+  })) as PayrollRecord[]
 }
 
 export async function finalizePayroll(periodId: string, idempotencyKey: string) {

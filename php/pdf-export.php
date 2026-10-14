@@ -402,7 +402,7 @@ function render_payroll_report(array $context, ?string $periodId): never
     $pdf->Cell(38, 8, money($net), 1, 1, 'R', true);
     $pdf->SetFont('helvetica', 'I', 7);
     $pdf->Ln(4);
-    $pdf->Cell(0, 5, 'Generated from finalized payroll records. Statutory and tax deductions remain fixed at zero.', 0, 1, 'L');
+    $pdf->Cell(0, 5, 'Generated from finalized payroll records. Statutory and tax amounts use the approved payroll schedules.', 0, 1, 'L');
     finish_pdf($pdf, 'payroll-report.pdf');
 }
 
@@ -451,7 +451,7 @@ function render_payslip(array $context, string $payslipId): never
     $pdf->Cell(55, 9, money($record['net_pay'] ?? 0), 1, 1, 'R', true);
     $pdf->SetFont('helvetica', 'I', 7);
     $pdf->Ln(5);
-    $pdf->Cell(0, 5, 'Prototype payroll document: statutory and tax deductions remain fixed at zero. Keep this document private.', 0, 1, 'L');
+    $pdf->Cell(0, 5, 'Private payroll document. Statutory and tax amounts use the approved payroll schedules.', 0, 1, 'L');
     finish_pdf($pdf, 'payslip-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $payslipId) . '.pdf');
 }
 

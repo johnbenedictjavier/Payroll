@@ -73,6 +73,7 @@ import type {
   SalaryType,
 } from "@/types/database";
 import { formatDate, titleCase } from "@/lib/utils";
+import { openDocumentUrl } from "@/lib/open-document";
 
 type AssignmentForm = {
   id?: string;
@@ -1644,7 +1645,9 @@ export function EmployeeProfilePage() {
                             const url = await getEmployeeDocumentUrl(
                               document.storage_path,
                             );
-                            window.open(url, "_blank", "noopener,noreferrer");
+                            if (!openDocumentUrl(url)) {
+                              setError("The browser blocked the private document tab. Allow popups and try again.");
+                            }
                           } catch {
                             setError(
                               "The private document could not be opened.",

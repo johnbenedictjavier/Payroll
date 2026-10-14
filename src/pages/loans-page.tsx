@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { PrintReport } from "@/components/ui/print-report";
 import {
   createEmployeeLoan,
   createLoanType,
@@ -334,7 +335,7 @@ export function LoansPage() {
         />
       </div>
       <div className="grid gap-6 xl:grid-cols-[0.34fr_0.66fr]">
-        <Card className="h-fit">
+        <Card className="h-fit print:hidden">
           <CardHeader>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -398,7 +399,7 @@ export function LoansPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="print:hidden">
           <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <CardTitle>Employee loans</CardTitle>
@@ -490,6 +491,12 @@ export function LoansPage() {
           </CardContent>
         </Card>
       </div>
+      <PrintReport title="Loan register" subtitle={`${visibleLoans.length} employee loans · ${visibleTypes.length} visible loan types`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Employee</th><th>Loan type</th><th>Principal</th><th>Balance</th><th>Installment</th><th>Priority</th><th>Status</th></tr></thead>
+          <tbody>{visibleLoans.map((loan) => <tr key={`print-loan-${loan.id}`}><td>{loan.employee ? `${loan.employee.employee_number} · ${loan.employee.last_name}, ${loan.employee.first_name}` : loan.employee_id}</td><td>{loan.loan_type?.name ?? "Loan"}</td><td className="money">{formatCurrency(loan.principal_amount)}</td><td className="money">{formatCurrency(loan.outstanding_balance)}</td><td className="money">{formatCurrency(loan.installment_amount)}</td><td>{loan.priority ?? "Unassigned"}</td><td>{loan.status}</td></tr>)}</tbody>
+        </table>
+      </PrintReport>
 
       <Dialog
         open={typeDialog}

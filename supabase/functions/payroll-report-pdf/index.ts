@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
         draw(`PHP ${Number(record.net_pay ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 510, y, 10, true)
         y -= 20
       }
-      draw('Generated from finalized payroll records. Statutory and tax deductions remain fixed at zero.', 48, 42, 8)
+      draw('Generated from finalized payroll records. Statutory and tax amounts use the approved payroll schedules.', 48, 42, 8)
     }
     const rows = (records ?? []) as Array<Record<string, unknown>>
     for (let index = 0; index < Math.max(1, rows.length); index += 29) drawPage(rows.slice(index, index + 29), Math.floor(index / 29) + 1)

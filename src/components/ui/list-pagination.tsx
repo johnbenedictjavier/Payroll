@@ -26,7 +26,7 @@ export function ListPagination({
   if (total === 0) return null
 
   return (
-    <div className="mt-4 grid min-w-0 gap-3 border-t border-dashed pt-4 text-xs text-muted-foreground">
+    <div className="mt-4 grid min-w-0 gap-3 border-t border-dashed pt-4 text-xs text-muted-foreground print:hidden">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
         <label htmlFor={selectId} className="whitespace-nowrap font-semibold">Show</label>
         <select

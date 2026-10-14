@@ -49,6 +49,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { PayrollRecord } from "@/types/database";
 import { usePagination } from "@/lib/use-pagination";
+import { openDocumentUrl } from "@/lib/open-document";
 
 export function ReportsPage() {
   const periods = useQuery({
@@ -59,6 +60,7 @@ export function ReportsPage() {
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  const [pdfReadyUrl, setPdfReadyUrl] = useState("");
   const records = useQuery({
     queryKey: ["report-payroll-records", periodId],
     queryFn: () => listPayrollRecords(periodId || undefined),
@@ -140,15 +142,13 @@ export function ReportsPage() {
   }
 
   async function exportPdf() {
-    const popup = window.open("", "_blank", "noopener,noreferrer");
     setPdfBusy(true);
     setPdfError("");
+    setPdfReadyUrl("");
     try {
       const url = await getPayrollReportPdfUrl(periodId || undefined);
-      if (popup) popup.location.href = url;
-      else window.open(url, "_blank", "noopener,noreferrer");
+      if (!openDocumentUrl(url)) setPdfReadyUrl(url);
     } catch (error) {
-      popup?.close();
       setPdfError((error as Error).message);
     } finally {
       setPdfBusy(false);
@@ -160,7 +160,7 @@ export function ReportsPage() {
       <PageHeading
         eyebrow="Insights"
         title="Reports and analytics"
-        description="Review finalized prototype payroll records using real database transactions. Draft calculations are never presented as historical reports, and statutory/tax deductions remain zero."
+        description="Review finalized payroll records using real database transactions. Draft calculations are never presented as historical reports."
       />
       <Card className="mb-6 print:hidden">
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
@@ -238,6 +238,11 @@ export function ReportsPage() {
         </CardContent>
       </Card>
       {pdfError && <Alert variant="danger" className="mb-6">{pdfError}</Alert>}
+      {pdfReadyUrl && (
+        <Alert className="mb-6">
+          The browser blocked the new tab. <a className="font-bold text-primary underline" href={pdfReadyUrl} target="_blank" rel="noopener noreferrer">Open the generated PDF</a>.
+        </Alert>
+      )}
       {records.isError && (
         <Alert variant="danger" className="mb-6">
           {(records.error as Error).message}
@@ -412,6 +417,7 @@ export function ReportsPage() {
               <th>Period</th>
               <th>Gross pay</th>
               <th>Deductions</th>
+              <th>Employer contributions</th>
               <th>Net pay</th>
             </tr>
           </thead>
@@ -430,6 +436,7 @@ export function ReportsPage() {
                 </td>
                 <td className="money">{formatCurrency(record.gross_pay)}</td>
                 <td className="money">{formatCurrency(record.total_deductions)}</td>
+                <td className="money">{formatCurrency(record.employer_contributions ?? 0)}</td>
                 <td className="money font-bold">{formatCurrency(record.net_pay)}</td>
               </tr>
             ))}

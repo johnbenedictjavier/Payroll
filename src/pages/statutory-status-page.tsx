@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PrintReport } from "@/components/ui/print-report";
 import { getStatutoryStatus } from "@/services/api";
 import { formatDate } from "@/lib/utils";
 
@@ -23,7 +24,7 @@ export function StatutoryStatusPage() {
       <PageHeading
         eyebrow="Payroll controls"
         title="Statutory status"
-        description="Review the four informational references required for payroll controls. Statutory and tax deductions remain zero in payroll."
+        description="Review the effective-dated statutory rules used by payroll calculations and their official sources."
         actions={
           <ActionGroup>
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate("/admin/payroll")}>
@@ -37,7 +38,7 @@ export function StatutoryStatusPage() {
           </ActionGroup>
         }
       />
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
@@ -113,11 +114,17 @@ export function StatutoryStatusPage() {
           <div className="mt-5 flex items-start gap-3 rounded-2xl bg-secondary/60 p-4 text-sm text-muted-foreground">
             <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <p>
-              Payroll preview continues to use the fixed default calculation. This page does not activate, edit, or apply statutory schedules.
+              Payroll uses the approved effective-dated rules selected for the payroll period. Update the source rules only after reviewing the official agency guidance.
             </p>
           </div>
         </CardContent>
       </Card>
+      <PrintReport title="Statutory status" subtitle="Official source references and effective dates">
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Rule</th><th>Status</th><th>Effective from</th><th>Source</th><th>URL</th></tr></thead>
+          <tbody>{requiredTypes.map((type) => { const item = status.data?.find((reference) => reference.schedule_type === type); return <tr key={`print-statutory-${type}`}><td>{statutoryLabel(type)}</td><td>{item?.status ?? "NEEDED"}</td><td>{item?.effective_from ? formatDate(item.effective_from) : "-"}</td><td>{item?.source_reference ?? "-"}</td><td>{item?.source_url ?? "-"}</td></tr> })}</tbody>
+        </table>
+      </PrintReport>
     </div>
   );
 }

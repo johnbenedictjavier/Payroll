@@ -39,7 +39,7 @@ Deno.serve(async (request) => {
       page.drawLine({ start: { x: 54, y: 570 }, end: { x: 558, y: 570 }, thickness: 1, color: rgb(0.75, 0.8, 0.85) })
       const rows = [['Basic pay', record.basic_pay], ['Overtime pay', record.overtime_pay], ['Other income', record.other_income], ['Employee contributions', -record.employee_contributions], ['Withholding tax', -record.withholding_tax], ['Loan deductions', -record.loan_deductions], ['Other deductions', -record.other_deductions], ['Gross pay', record.gross_pay], ['Total deductions', -record.total_deductions], ['NET PAY', record.net_pay]] as Array<[string, number]>
       rows.forEach(([label, amount], index) => { const y = 535 - index * 27; draw(label, 60, y, label === 'NET PAY' ? 13 : 10, label === 'NET PAY' || label === 'Gross pay'); draw(`PHP ${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`, 405, y, label === 'NET PAY' ? 13 : 10, label === 'NET PAY' || label === 'Gross pay') })
-      draw('Prototype payroll document: statutory and tax deductions remain fixed at zero. Keep this document private.', 54, 72, 9)
+      draw('Private payroll document. Statutory and tax amounts use the approved payroll schedules.', 54, 72, 9)
       const bytes = await pdf.save()
       storagePath = `pms-payslips/${record.employee?.employee_number ?? payslip.employee_id}/${payslip.id}.pdf`
       const { error: uploadError } = await adminClient.storage.from('pms-payslips').upload(storagePath, bytes, { contentType: 'application/pdf', upsert: true })

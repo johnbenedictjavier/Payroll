@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { PrintReport } from "@/components/ui/print-report";
 import {
   deleteAttendance,
   listAttendance,
@@ -291,7 +292,7 @@ export function AttendancePage() {
         />
       ) : (
         <>
-          <div className="mb-6 grid gap-3 sm:grid-cols-3">
+           <div className="mb-6 grid gap-3 print:hidden sm:grid-cols-3">
             <AttendanceMetric
               label="Completion"
               value={`${completedCount}/${allActiveEmployees.length}`}
@@ -317,7 +318,7 @@ export function AttendancePage() {
               warning={isLocked}
             />
           </div>
-          <Card>
+           <Card className="print:hidden">
             <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -398,8 +399,22 @@ export function AttendancePage() {
                 </>
               )}
             </CardContent>
-          </Card>
-        </>
+           </Card>
+           <PrintReport
+             title="Attendance register"
+             subtitle={`${periods.data?.find((period) => period.id === periodId)?.name ?? "Payroll period"} · ${allActiveEmployees.length} active employees`}
+           >
+             <table className="print-table print-table-wide w-full text-xs">
+               <thead><tr><th>Employee</th><th>Days worked</th><th>Absences</th><th>Tardiness</th><th>Undertime</th><th>Overtime</th><th>Notes</th></tr></thead>
+               <tbody>
+                 {allActiveEmployees.map((employee) => {
+                   const row = draftFor(employee.id)
+                   return <tr key={`print-attendance-${employee.id}`}><td>{employee.employee_number} · {employee.last_name}, {employee.first_name}</td><td>{row.days_worked || 0}</td><td>{row.absence_days || 0}</td><td>{row.tardiness_minutes || 0} min</td><td>{row.undertime_minutes || 0} min</td><td>{row.overtime_hours || 0} hrs</td><td>{row.notes || ""}</td></tr>
+                 })}
+               </tbody>
+             </table>
+           </PrintReport>
+         </>
       )}
     </div>
   );

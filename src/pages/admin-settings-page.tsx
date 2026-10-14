@@ -64,7 +64,7 @@ export function AdminSettingsPage() {
       <PageHeading
         eyebrow="Administration"
         title="System settings"
-        description="Payroll uses fixed prototype calculation rules. Manage administrator account security here."
+        description="Manage administrator account security and payroll administration settings here."
       />
 
       <Alert variant="warning" className="mb-6 max-w-xl">

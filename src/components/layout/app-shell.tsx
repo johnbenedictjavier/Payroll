@@ -161,7 +161,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-          <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}<div key={location.pathname} className="page-transition">{children}</div></div>
+          <div className="p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8 print:p-0">{passwordChanged && <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">Password updated successfully. You are still signed in.</Alert>}<div key={location.pathname} className="page-transition">{children}</div></div>
        </main>
 
         <ConfirmationDialog open={confirmSignOut || signingOut} onClose={() => setConfirmSignOut(false)} onConfirm={() => void confirmSignOutAction()} title="Sign out?" description="Your current session will end on this device." confirmLabel="Sign out" variant="danger" loading={signingOut} />

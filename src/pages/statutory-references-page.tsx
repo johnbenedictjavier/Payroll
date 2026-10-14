@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeading } from "@/components/layout/page-heading";
+import { PrintReport } from "@/components/ui/print-report";
 import { formatDate } from "@/lib/utils";
 import { getStatutoryStatus, saveStatutoryReference } from "@/services/api";
 import type { StatutoryStatus } from "@/types/database";
@@ -104,10 +105,10 @@ export function StatutoryReferencesPage() {
 
   return (
     <div>
-      <PageHeading
+       <PageHeading
         eyebrow="Administration"
         title="Statutory references"
-        description="Record the official references needed to complete the statutory review. These entries are informational and never activate deductions."
+         description="Record the official source references used to review and maintain effective-dated statutory rules."
         actions={
           <ActionGroup>
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate("/admin/payroll/statutory-status")}>
@@ -125,11 +126,11 @@ export function StatutoryReferencesPage() {
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <SummaryCard label="Recorded" value={`${recordedCount}/4`} detail="References completed" />
         <SummaryCard label="Selected" value={selectedLabel} detail="Reference being edited" />
-        <SummaryCard label="Payroll impact" value="None" detail="Statutory deductions stay zero" />
+         <SummaryCard label="Payroll impact" value="Rules" detail="Used by the calculation engine" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-        <Card>
+       <div className="grid gap-6 print:hidden xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+         <Card>
           <CardHeader>
             <CardTitle>What is needed</CardTitle>
             <CardDescription>Select a required reference to complete or review it.</CardDescription>
@@ -165,9 +166,9 @@ export function StatutoryReferencesPage() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {recorded && item?.effective_from ? `Recorded effective ${formatDate(item.effective_from)}` : type.description}
                       </p>
-                    </div>
-                  </div>
-                </button>
+                     </div>
+                   </div>
+                 </button>
               );
             })}
           </CardContent>
@@ -196,7 +197,7 @@ export function StatutoryReferencesPage() {
               </div>
               <div className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-4 text-sm text-muted-foreground">
                 <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <p>This register documents the reference only. Payroll continues to use the fixed calculation rules and does not apply statutory or tax deductions.</p>
+                 <p>This register documents the official source used for the active statutory calculation rules. Changes should be reviewed before a rule is approved.</p>
               </div>
               <ActionGroup className="border-t pt-4">
                 {selectedReference?.source_url && (
@@ -214,6 +215,12 @@ export function StatutoryReferencesPage() {
           </CardContent>
         </Card>
       </div>
+      <PrintReport title="Statutory source register" subtitle="All configured official references">
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Rule</th><th>Status</th><th>Effective from</th><th>Source</th><th>URL</th></tr></thead>
+          <tbody>{statutoryTypes.map((type) => { const item = status.data?.find((reference) => reference.schedule_type === type.value); return <tr key={`print-reference-${type.value}`}><td>{type.label}</td><td>{item?.status ?? "NEEDED"}</td><td>{item?.effective_from ? formatDate(item.effective_from) : "-"}</td><td>{item?.source_reference ?? "-"}</td><td>{item?.source_url ?? "-"}</td></tr> })}</tbody>
+        </table>
+      </PrintReport>
     </div>
   );
 }

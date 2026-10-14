@@ -45,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { PrintReport } from "@/components/ui/print-report";
 import {
   DuplicateEmployeeEmailError,
   getEmployeeDirectoryPdfUrl,
@@ -57,6 +58,7 @@ import {
 import type { Employee, EmploymentStatus } from "@/types/database";
 import { formatDate, titleCase } from "@/lib/utils";
 import { usePagination } from "@/lib/use-pagination";
+import { openDocumentUrl } from "@/lib/open-document";
 
 type EmployeeFilter = "all" | EmploymentStatus;
 type Feedback = {
@@ -72,6 +74,7 @@ export function EmployeesPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [statusTarget, setStatusTarget] = useState<Employee | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [directoryPdfUrl, setDirectoryPdfUrl] = useState("");
   const employees = useQuery({
     queryKey: ["employees", search],
     queryFn: () => listEmployees(search, { excludeAdmins: true }),
@@ -189,13 +192,11 @@ export function EmployeesPage() {
   }
 
   async function exportDirectoryPdf() {
-    const popup = window.open("", "_blank", "noopener,noreferrer");
+    setDirectoryPdfUrl("");
     try {
       const url = await getEmployeeDirectoryPdfUrl();
-      if (popup) popup.location.href = url;
-      else window.open(url, "_blank", "noopener,noreferrer");
+      if (!openDocumentUrl(url)) setDirectoryPdfUrl(url);
     } catch (error) {
-      popup?.close();
       setFeedback({
         title: "Directory PDF unavailable",
         message: (error as Error).message,
@@ -227,6 +228,11 @@ export function EmployeesPage() {
           </ActionGroup>
         }
       />
+      {directoryPdfUrl && (
+        <Alert className="mb-6">
+          The browser blocked the new tab. <a className="font-bold text-primary underline" href={directoryPdfUrl} target="_blank" rel="noopener noreferrer">Open the generated directory PDF</a>.
+        </Alert>
+      )}
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <MiniMetric
           label="Active employees"
@@ -276,7 +282,7 @@ export function EmployeesPage() {
           </select>
         </div>
       </div>
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -408,7 +414,7 @@ export function EmployeesPage() {
           )}
         </CardContent>
       </Card>
-      <Card className="mt-6">
+      <Card className="mt-6 print:hidden">
         <CardHeader>
           <CardTitle>Profile change requests</CardTitle>
           <CardDescription>
@@ -504,6 +510,32 @@ export function EmployeesPage() {
           )}
         </CardContent>
       </Card>
+
+      <PrintReport title="Employee directory" subtitle={`${visibleEmployees.length} employees · ${statusFilter === "all" ? "All non-archived" : titleCase(statusFilter)}`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Employee</th><th>Assignment</th><th>Contact</th><th>Portal</th><th>Status</th></tr></thead>
+          <tbody>
+            {visibleEmployees.map((employee) => (
+              <tr key={`print-employee-${employee.id}`}>
+                <td>{employee.employee_number} · {employee.last_name}, {employee.first_name}</td>
+                <td>{employee.position?.name ?? "Unassigned"} / {employee.department?.name ?? "No department"}</td>
+                <td>{employee.email ?? employee.contact_number ?? "No contact"}</td>
+                <td>{employee.auth_user_id ? "Ready" : "Not provisioned"}</td>
+                <td>{titleCase(employee.status)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {(requests.data ?? []).length > 0 && (
+          <>
+            <h3 className="mt-6 mb-2 text-sm font-bold">Pending profile requests</h3>
+            <table className="print-table w-full text-xs">
+              <thead><tr><th>Employee</th><th>Submitted</th><th>Reason</th></tr></thead>
+              <tbody>{(requests.data ?? []).map((request) => <tr key={`print-request-${request.id}`}><td>{request.employee ? `${request.employee.last_name}, ${request.employee.first_name}` : request.employee_id}</td><td>{formatDate(request.created_at.slice(0, 10))}</td><td>{request.reason ?? "No reason provided"}</td></tr>)}</tbody>
+            </table>
+          </>
+        )}
+      </PrintReport>
 
       <ConfirmationDialog
         open={Boolean(statusTarget)}

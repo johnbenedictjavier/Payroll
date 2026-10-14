@@ -30,6 +30,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { PrintReport } from "@/components/ui/print-report";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -48,7 +49,7 @@ import {
   listSalaryHistory,
   updateSalaryHistory,
 } from "@/services/api";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, titleCase } from "@/lib/utils";
 
 type SalaryForm = {
   employee_id: string;
@@ -216,7 +217,7 @@ export function SalariesPage() {
       <PageHeading
         eyebrow="Compensation"
         title="Salary configuration"
-        description="Manage effective-dated compensation and keep approved salary records ready for prototype payroll."
+        description="Manage effective-dated compensation and keep approved salary records ready for payroll."
         actions={
           <ActionGroup>
             <Button className="w-full sm:w-auto" onClick={openCreateDialog}>
@@ -230,9 +231,6 @@ export function SalariesPage() {
           </ActionGroup>
         }
       />
-      <Alert variant="warning" className="mb-6">
-        Salary values feed the prototype payroll calculation. Statutory contributions and withholding tax remain zero until a compliant future module is implemented and validated.
-      </Alert>
       {error && (
         <Alert variant="danger" className="mb-6">
           {error}
@@ -259,7 +257,7 @@ export function SalariesPage() {
           icon={CircleDollarSign}
         />
       </div>
-      <Card>
+      <Card className="print:hidden">
         <CardHeader className="gap-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -367,6 +365,13 @@ export function SalariesPage() {
           )}
         </CardContent>
       </Card>
+
+      <PrintReport title="Salary history" subtitle={`${visibleHistory.length} filtered salary records · ${approvalFilter === "all" ? "All statuses" : titleCase(approvalFilter)}`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Employee</th><th>Type</th><th>Amount</th><th>Effective from</th><th>Effective to</th><th>Status</th><th>Source</th></tr></thead>
+          <tbody>{visibleHistory.map((row) => <tr key={`print-salary-${row.id}`}><td>{row.employee ? `${row.employee.employee_number} · ${row.employee.last_name}, ${row.employee.first_name}` : row.employee_id}</td><td>{row.salary_type}</td><td className="money">{formatCurrency(row.amount)}</td><td>{formatDate(row.effective_from)}</td><td>{row.effective_to ? formatDate(row.effective_to) : "Current"}</td><td>{row.is_approved ? "Approved" : "Review required"}</td><td>{row.source ?? "-"}</td></tr>)}</tbody>
+        </table>
+      </PrintReport>
 
       <Dialog
         open={open}

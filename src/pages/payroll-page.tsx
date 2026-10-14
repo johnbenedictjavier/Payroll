@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Ban,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   FileCheck2,
@@ -48,18 +50,28 @@ import { ListPagination } from "@/components/ui/list-pagination";
 import { usePagination } from "@/lib/use-pagination";
 import {
   createPayrollPeriod,
+  createOtherTransaction,
   cancelPayrollPeriod,
   deletePayrollPeriod,
   finalizePayroll,
+  listAttendance,
+  listOtherTransactions,
   listPayrollPeriods,
   listPayrollRecords,
   markPayrollPaid,
   previewPayroll,
   publishPayslips,
+  saveAttendance,
+  updateOtherTransactionStatus,
   updatePayrollPeriod,
 } from "@/services/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { PayrollPeriod, PayrollRecord } from "@/types/database";
+import type {
+  Attendance,
+  OtherTransaction,
+  PayrollPeriod,
+  PayrollRecord,
+} from "@/types/database";
 
 type PeriodForm = {
   name: string;
@@ -70,6 +82,22 @@ type PeriodForm = {
 };
 type ConfirmAction = "finalize" | "paid" | "publish" | null;
 type PeriodAction = "delete" | "cancel" | null;
+type AdjustmentKind = "income" | "deduction";
+type ApprovalTarget = { kind: AdjustmentKind; transaction: OtherTransaction } | null;
+type AttendanceEditorDraft = {
+  days_worked: string;
+  absence_days: string;
+  tardiness_minutes: string;
+  undertime_minutes: string;
+  overtime_hours: string;
+  notes: string;
+};
+type AdjustmentDraft = {
+  kind: AdjustmentKind;
+  transaction_type: string;
+  amount: string;
+  description: string;
+};
 const blankPeriod: PeriodForm = {
   name: "",
   start_date: "",
@@ -98,6 +126,17 @@ export function PayrollPage() {
     PayrollPeriod["status"] | "all"
   >("all");
   const [recordSearch, setRecordSearch] = useState("");
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [attendanceEditor, setAttendanceEditor] = useState<PayrollRecord | null>(null);
+  const [attendanceDraft, setAttendanceDraft] = useState<AttendanceEditorDraft | null>(null);
+  const [adjustmentEditor, setAdjustmentEditor] = useState<PayrollRecord | null>(null);
+  const [adjustmentDraft, setAdjustmentDraft] = useState<AdjustmentDraft>({
+    kind: "income",
+    transaction_type: "",
+    amount: "",
+    description: "",
+  });
+  const [approvalTarget, setApprovalTarget] = useState<ApprovalTarget>(null);
 
   const selectedPeriod =
     periods.data?.find((period) => period.id === selectedId) ??
@@ -126,6 +165,21 @@ export function PayrollPage() {
     queryKey: ["payroll-preview", selectedPeriod?.id],
     queryFn: () => previewPayroll(selectedPeriod!.id),
     enabled: false,
+  });
+  const attendance = useQuery({
+    queryKey: ["attendance", selectedPeriod?.id],
+    queryFn: () => listAttendance(selectedPeriod!.id),
+    enabled: Boolean(selectedPeriod?.id),
+  });
+  const incomeTransactions = useQuery({
+    queryKey: ["transactions", "income", selectedPeriod?.id],
+    queryFn: () => listOtherTransactions("income", selectedPeriod!.id),
+    enabled: Boolean(selectedPeriod?.id),
+  });
+  const deductionTransactions = useQuery({
+    queryKey: ["transactions", "deduction", selectedPeriod?.id],
+    queryFn: () => listOtherTransactions("deduction", selectedPeriod!.id),
+    enabled: Boolean(selectedPeriod?.id),
   });
 
   useEffect(() => {
@@ -210,6 +264,55 @@ export function PayrollPage() {
     },
     onError: (mutationError) => setError((mutationError as Error).message),
   });
+  const attendanceMutation = useMutation({
+    mutationFn: (draft: AttendanceEditorDraft) => saveAttendance({
+      payroll_period_id: selectedPeriod!.id,
+      employee_id: attendanceEditor!.employee_id,
+      days_worked: Number(draft.days_worked || 0),
+      absence_days: Number(draft.absence_days || 0),
+      tardiness_minutes: Number(draft.tardiness_minutes || 0),
+      undertime_minutes: Number(draft.undertime_minutes || 0),
+      overtime_hours: Number(draft.overtime_hours || 0),
+      notes: draft.notes || null,
+    }),
+    onSuccess: () => {
+      setAttendanceEditor(null);
+      setAttendanceDraft(null);
+      setError("Attendance updated. Run Preview to recalculate the ledger.");
+      void queryClient.invalidateQueries({ queryKey: ["attendance", selectedPeriod?.id] });
+      queryClient.removeQueries({ queryKey: ["payroll-preview", selectedPeriod?.id] });
+    },
+    onError: (mutationError) => setError((mutationError as Error).message),
+  });
+  const adjustmentMutation = useMutation({
+    mutationFn: () => createOtherTransaction(adjustmentDraft.kind, {
+      payroll_period_id: selectedPeriod!.id,
+      employee_id: adjustmentEditor!.employee_id,
+      transaction_type: adjustmentDraft.transaction_type,
+      amount: Number(adjustmentDraft.amount),
+      description: adjustmentDraft.description,
+    }),
+    onSuccess: () => {
+      setAdjustmentEditor(null);
+      setAdjustmentDraft({ kind: "income", transaction_type: "", amount: "", description: "" });
+      setError("Adjustment added as pending. Approve it before running Preview.");
+      void queryClient.invalidateQueries({ queryKey: ["transactions", adjustmentDraft.kind, selectedPeriod?.id] });
+      queryClient.removeQueries({ queryKey: ["payroll-preview", selectedPeriod?.id] });
+    },
+    onError: (mutationError) => setError((mutationError as Error).message),
+  });
+  const approvalMutation = useMutation({
+    mutationFn: (target: { kind: AdjustmentKind; transaction: OtherTransaction; status: "approved" | "rejected" }) =>
+      updateOtherTransactionStatus(target.kind, target.transaction.id, target.status),
+    onSuccess: () => {
+      const kind = approvalTarget?.kind;
+      setApprovalTarget(null);
+      setError("Adjustment status updated. Run Preview to recalculate the ledger.");
+      if (kind) void queryClient.invalidateQueries({ queryKey: ["transactions", kind, selectedPeriod?.id] });
+      queryClient.removeQueries({ queryKey: ["payroll-preview", selectedPeriod?.id] });
+    },
+    onError: (mutationError) => setError((mutationError as Error).message),
+  });
 
   const previewRecords = (preview.data ?? []) as PayrollRecord[];
   const displayedRecords = preview.isSuccess
@@ -238,11 +341,11 @@ export function PayrollPage() {
     preview.error instanceof Error
       ? preview.error.message
       : "The payroll preview could not be loaded.";
-  const previewUsesLegacyRules = /statutory schedule/i.test(
+  const previewUsesLegacyRules = /statutory schedule|legacy.*payroll function/i.test(
     rawPreviewErrorMessage,
   );
   const previewErrorMessage = previewUsesLegacyRules
-    ? "The connected Supabase project is still using the legacy statutory-dependent payroll function. Apply the Payroll migrations through 202610140001 to use the fixed prototype rules."
+    ? "The connected Supabase project is still using an older payroll function. Apply the Payroll migrations through 202610150006 to use the current ledger and statutory rules."
     : rawPreviewErrorMessage;
   const previewNeedsInputs =
     !previewUsesLegacyRules &&
@@ -251,6 +354,9 @@ export function PayrollPage() {
     finalizeMutation.isPending ||
     paidMutation.isPending ||
     publishMutation.isPending;
+  const periodIsEditable = Boolean(
+    selectedPeriod && ["draft", "review"].includes(selectedPeriod.status),
+  );
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -311,27 +417,70 @@ export function PayrollPage() {
     setDialogOpen(true);
   }
 
+  function attendanceFor(record: PayrollRecord) {
+    return record.attendance ?? attendance.data?.find(
+      (row) => row.payroll_period_id === record.payroll_period_id && row.employee_id === record.employee_id,
+    ) ?? null;
+  }
+
+  function transactionsFor(record: PayrollRecord) {
+    return {
+      income: (incomeTransactions.data ?? []).filter((transaction) => transaction.employee_id === record.employee_id),
+      deduction: (deductionTransactions.data ?? []).filter((transaction) => transaction.employee_id === record.employee_id),
+    };
+  }
+
+  function openAttendanceEditor(record: PayrollRecord) {
+    const current = attendanceFor(record);
+    setAttendanceEditor(record);
+    setAttendanceDraft({
+      days_worked: String(current?.days_worked ?? 0),
+      absence_days: String(current?.absence_days ?? 0),
+      tardiness_minutes: String(current?.tardiness_minutes ?? 0),
+      undertime_minutes: String(current?.undertime_minutes ?? 0),
+      overtime_hours: String(current?.overtime_hours ?? 0),
+      notes: current?.notes ?? "",
+    });
+    setError("");
+  }
+
+  function openAdjustmentEditor(record: PayrollRecord, kind: AdjustmentKind) {
+    setAdjustmentEditor(record);
+    setAdjustmentDraft({ kind, transaction_type: "", amount: "", description: "" });
+    setError("");
+  }
+
+  function submitAdjustment(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (!adjustmentDraft.transaction_type.trim() || Number(adjustmentDraft.amount) <= 0) {
+      setError("Adjustment type and a positive amount are required.");
+      return;
+    }
+    adjustmentMutation.mutate();
+  }
+
   const actionCopy =
     confirmAction === "finalize"
       ? {
           title: "Finalize payroll?",
           description:
-            "This creates immutable payroll records and applies the calculated loan repayment transactions. Statutory deductions remain zero in prototype mode.",
+            "This creates immutable payroll records, applies approved adjustments, and records employee and employer statutory contributions.",
           button: "Finalize payroll",
           variant: "primary" as const,
         }
       : confirmAction === "paid"
         ? {
             title: "Mark payroll as paid?",
-            description:
-              "Prototype warning: this records the pay cycle as paid, but does not confirm compliant Philippine payroll. Confirm that the bank or cash disbursement is complete.",
+          description:
+            "This records the pay cycle as paid. Confirm that the bank or cash disbursement is complete.",
             button: "Mark as paid",
             variant: "primary" as const,
           }
         : {
             title: "Publish payslips?",
-            description:
-              "Employees will be notified that their prototype payslips are available. Applicable statutory deductions must be implemented and validated before actual Philippine salary disbursement.",
+          description:
+            "Employees will be notified that their payslips are available with the recorded earnings, deductions, and statutory contribution details.",
             button: "Publish payslips",
             variant: "primary" as const,
           };
@@ -341,11 +490,8 @@ export function PayrollPage() {
       <PageHeading
         eyebrow="Pay cycle"
         title="Payroll processing"
-        description="Move each period from preparation to review, finalization, payment, and payslip publication."
+        description="Review attendance, earnings, statutory contributions, adjustments, and net pay before finalization."
       />
-      <Alert variant="warning" className="mb-6">
-        <strong>Prototype payroll:</strong> regular earnings, overtime, other income, attendance deductions, employee loans, and approved other deductions are calculated. SSS, PhilHealth, Pag-IBIG, and withholding tax are not applied. Do not use this workflow for actual Philippine salary disbursement until applicable statutory deductions are implemented and validated.
-      </Alert>
       {periods.isError && (
         <Alert variant="danger" className="mb-6">
           {(periods.error as Error).message}
@@ -519,7 +665,7 @@ export function PayrollPage() {
                       {formatDate(selectedPeriod.pay_date)}
                     </CardDescription>
                   </div>
-                  <ActionGroup className="sm:justify-end">
+                  <ActionGroup className="print:hidden sm:justify-end">
                     {selectedPeriod.status === "draft" && (
                       <>
                         <Button size="sm" className="w-full sm:w-auto" variant="ghost" onClick={openEditPeriod}>
@@ -630,7 +776,7 @@ export function PayrollPage() {
                     </CardDescription>
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                    <ActionGroup className="sm:w-auto">
+                    <ActionGroup className="print:hidden sm:w-auto">
                       <Button
                         size="sm"
                         variant="outline"
@@ -694,6 +840,8 @@ export function PayrollPage() {
                               <TableHead>Gross</TableHead>
                               <TableHead>Loan</TableHead>
                               <TableHead>Deductions</TableHead>
+                              <TableHead>Attendance</TableHead>
+                              <TableHead />
                               <TableHead className="text-right">
                                 Net pay
                               </TableHead>
@@ -701,7 +849,8 @@ export function PayrollPage() {
                           </TableHeader>
                           <TableBody>
                             {visibleRecords.map((record) => (
-                              <TableRow key={record.id}>
+                              <Fragment key={record.id}>
+                              <TableRow>
                                 <TableCell>
                                   <div className="flex items-center gap-3">
                                     <EmployeeAvatar
@@ -734,10 +883,41 @@ export function PayrollPage() {
                                 <TableCell className="money">
                                   {formatCurrency(record.total_deductions)}
                                 </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {formatAttendanceShort(attendanceFor(record))}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setExpandedRecordId((current) => current === record.id ? null : record.id)}
+                                    aria-expanded={expandedRecordId === record.id}
+                                  >
+                                    <ChevronDown className={`h-4 w-4 transition-transform ${expandedRecordId === record.id ? "rotate-180" : ""}`} />
+                                    Details
+                                  </Button>
+                                </TableCell>
                                 <TableCell className="money text-right font-bold text-primary">
                                   {formatCurrency(record.net_pay)}
                                 </TableCell>
                               </TableRow>
+                              {expandedRecordId === record.id && (
+                                <TableRow className="bg-secondary/20">
+                                  <TableCell colSpan={8}>
+                                    <LedgerDetails
+                                      record={record}
+                                      attendance={attendanceFor(record)}
+                                      transactions={transactionsFor(record)}
+                                      editable={periodIsEditable}
+                                      onEditAttendance={() => openAttendanceEditor(record)}
+                                      onAddIncome={() => openAdjustmentEditor(record, "income")}
+                                      onAddDeduction={() => openAdjustmentEditor(record, "deduction")}
+                                      onApprove={(kind, transaction) => setApprovalTarget({ kind, transaction })}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                              </Fragment>
                             ))}
                           </TableBody>
                         </Table>
@@ -771,6 +951,15 @@ export function PayrollPage() {
                                 {formatCurrency(record.net_pay)}
                               </div>
                             </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mt-3 w-full"
+                              onClick={() => setExpandedRecordId((current) => current === record.id ? null : record.id)}
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${expandedRecordId === record.id ? "rotate-180" : ""}`} />
+                              {expandedRecordId === record.id ? "Hide details" : "View ledger details"}
+                            </Button>
                             <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-3 text-xs sm:grid-cols-4">
                               <div>
                                 <div className="text-muted-foreground">
@@ -805,6 +994,18 @@ export function PayrollPage() {
                                 </div>
                               </div>
                             </div>
+                            {expandedRecordId === record.id && (
+                              <LedgerDetails
+                                record={record}
+                                attendance={attendanceFor(record)}
+                                transactions={transactionsFor(record)}
+                                editable={periodIsEditable}
+                                onEditAttendance={() => openAttendanceEditor(record)}
+                                onAddIncome={() => openAdjustmentEditor(record, "income")}
+                                onAddDeduction={() => openAdjustmentEditor(record, "deduction")}
+                                onApprove={(kind, transaction) => setApprovalTarget({ kind, transaction })}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -840,15 +1041,18 @@ export function PayrollPage() {
                     />
                   </div>
                   <div className="hidden print:block">
-                    <table className="print-table w-full text-xs">
-                      <thead>
-                        <tr>
-                          <th>Employee</th>
-                          <th>Basic pay</th>
-                          <th>Gross</th>
-                          <th>Loan</th>
-                          <th>Deductions</th>
-                          <th>Net pay</th>
+                      <table className="print-table print-table-wide w-full text-xs">
+                        <thead>
+                          <tr>
+                            <th>Employee</th>
+                            <th>Attendance</th>
+                            <th>Basic</th>
+                            <th>Basic pay</th>
+                            <th>Statutory</th>
+                            <th>Employer contributions</th>
+                            <th>Gross</th>
+                            <th>All deductions</th>
+                            <th>Net pay</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -859,9 +1063,12 @@ export function PayrollPage() {
                                 ? `${record.employee.last_name}, ${record.employee.first_name}`
                                 : record.employee_id}
                             </td>
+                            <td>{formatAttendanceShort(attendanceFor(record))}</td>
+                            <td className="money">{formatCurrency(record.base_pay ?? record.basic_pay)}</td>
                             <td className="money">{formatCurrency(record.basic_pay)}</td>
+                            <td className="money">{formatCurrency((record.employee_contributions ?? 0) + (record.withholding_tax ?? 0))}</td>
+                            <td className="money">{formatCurrency(record.employer_contributions ?? 0)}</td>
                             <td className="money">{formatCurrency(record.gross_pay)}</td>
-                            <td className="money">{formatCurrency(record.loan_deductions)}</td>
                             <td className="money">{formatCurrency(record.total_deductions)}</td>
                             <td className="money font-bold">{formatCurrency(record.net_pay)}</td>
                           </tr>
@@ -1008,6 +1215,81 @@ export function PayrollPage() {
           </div>
         </form>
       </Dialog>
+      <Dialog
+        open={Boolean(attendanceEditor && attendanceDraft)}
+        onClose={() => {
+          if (!attendanceMutation.isPending) {
+            setAttendanceEditor(null);
+            setAttendanceDraft(null);
+          }
+        }}
+        title="Edit attendance"
+        description={`${attendanceEditor?.employee?.first_name ?? "Employee"} ${attendanceEditor?.employee?.last_name ?? ""} · Changes affect the next server preview.`}
+      >
+        {attendanceDraft && (
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              attendanceMutation.mutate(attendanceDraft);
+            }}
+          >
+            {error && <Alert variant="danger">{error}</Alert>}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <LedgerInput label="Days worked" value={attendanceDraft.days_worked} onChange={(value) => setAttendanceDraft((current) => current ? { ...current, days_worked: value } : current)} />
+              <LedgerInput label="Absence days" value={attendanceDraft.absence_days} onChange={(value) => setAttendanceDraft((current) => current ? { ...current, absence_days: value } : current)} />
+              <LedgerInput label="Tardiness (minutes)" value={attendanceDraft.tardiness_minutes} onChange={(value) => setAttendanceDraft((current) => current ? { ...current, tardiness_minutes: value } : current)} />
+              <LedgerInput label="Undertime (minutes)" value={attendanceDraft.undertime_minutes} onChange={(value) => setAttendanceDraft((current) => current ? { ...current, undertime_minutes: value } : current)} />
+              <LedgerInput label="Overtime (hours)" value={attendanceDraft.overtime_hours} onChange={(value) => setAttendanceDraft((current) => current ? { ...current, overtime_hours: value } : current)} />
+            </div>
+            <div>
+              <Label htmlFor="ledger-attendance-notes">Notes</Label>
+              <Input id="ledger-attendance-notes" value={attendanceDraft.notes} onChange={(event) => setAttendanceDraft((current) => current ? { ...current, notes: event.target.value } : current)} />
+            </div>
+            <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => { setAttendanceEditor(null); setAttendanceDraft(null); }}>Cancel</Button>
+              <Button type="submit" loading={attendanceMutation.isPending} loadingLabel="Saving attendance...">Save attendance</Button>
+            </div>
+          </form>
+        )}
+      </Dialog>
+      <Dialog
+        open={Boolean(adjustmentEditor)}
+        onClose={() => {
+          if (!adjustmentMutation.isPending) setAdjustmentEditor(null);
+        }}
+        title={`Add ${adjustmentDraft.kind === "income" ? "income" : "deduction"}`}
+        description="The adjustment is saved as pending and must be approved before it affects payroll."
+      >
+        <form className="space-y-5" onSubmit={submitAdjustment}>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <div>
+            <Label htmlFor="ledger-adjustment-kind">Adjustment type</Label>
+            <select id="ledger-adjustment-kind" className="h-10 w-full rounded-lg border bg-background px-3 text-sm" value={adjustmentDraft.kind} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, kind: event.target.value as AdjustmentKind }))}>
+              <option value="income">Other income</option>
+              <option value="deduction">Other deduction</option>
+            </select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ledger-adjustment-type">Type</Label>
+              <Input id="ledger-adjustment-type" value={adjustmentDraft.transaction_type} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, transaction_type: event.target.value }))} placeholder={adjustmentDraft.kind === "income" ? "Allowance or bonus" : "Authorized deduction"} required />
+            </div>
+            <div>
+              <Label htmlFor="ledger-adjustment-amount">Amount</Label>
+              <Input id="ledger-adjustment-amount" type="number" min="0.01" step="0.01" value={adjustmentDraft.amount} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, amount: event.target.value }))} required />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="ledger-adjustment-description">Description</Label>
+            <Input id="ledger-adjustment-description" value={adjustmentDraft.description} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Reason or supporting note" />
+          </div>
+          <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setAdjustmentEditor(null)}>Cancel</Button>
+            <Button type="submit" loading={adjustmentMutation.isPending} loadingLabel="Adding adjustment...">Add pending adjustment</Button>
+          </div>
+        </form>
+      </Dialog>
       <ConfirmationDialog
         open={Boolean(periodAction)}
         onClose={() => setPeriodAction(null)}
@@ -1038,6 +1320,23 @@ export function PayrollPage() {
             Estimated net payroll for {displayedRecords.length} employee
             records.
           </div>
+        </div>
+      </ConfirmationDialog>
+      <ConfirmationDialog
+        open={Boolean(approvalTarget)}
+        onClose={() => setApprovalTarget(null)}
+        onConfirm={() => {
+          if (approvalTarget) approvalMutation.mutate({ kind: approvalTarget.kind, transaction: approvalTarget.transaction, status: "approved" });
+        }}
+        title="Approve payroll adjustment?"
+        description="This adjustment will be included in the next server preview and final payroll calculation."
+        confirmLabel="Approve adjustment"
+        loading={approvalMutation.isPending}
+      >
+        <div className="rounded-lg bg-secondary/60 p-4">
+          <div className="font-semibold">{approvalTarget?.transaction.transaction_type}</div>
+          <div className="money mt-1 text-xl font-black">{formatCurrency(approvalTarget?.transaction.amount)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{approvalTarget?.transaction.description || "No description"}</div>
         </div>
       </ConfirmationDialog>
     </div>
@@ -1105,4 +1404,172 @@ function Control({ label, value }: { label: string; value: string }) {
       </div>
     </div>
   );
+}
+
+function formatAttendanceShort(attendance: PayrollRecord["attendance"]) {
+  if (!attendance) return "No attendance"
+  return `${Number(attendance.days_worked || 0)}d · ${Number(attendance.absence_days || 0)}a · ${Number(attendance.overtime_hours || 0)}h OT`
+}
+
+function LedgerDetails({
+  record,
+  attendance,
+  transactions,
+  editable,
+  onEditAttendance,
+  onAddIncome,
+  onAddDeduction,
+  onApprove,
+}: {
+  record: PayrollRecord
+  attendance: PayrollRecord["attendance"]
+  transactions: { income: OtherTransaction[]; deduction: OtherTransaction[] }
+  editable: boolean
+  onEditAttendance: () => void
+  onAddIncome: () => void
+  onAddDeduction: () => void
+  onApprove: (kind: AdjustmentKind, transaction: OtherTransaction) => void
+}) {
+  const items = record.items ?? []
+  const statutoryItems = items.filter((item) => item.code.endsWith("_EE") || item.code === "WITHHOLDING_TAX")
+  const snapshot = record.calculation_snapshot?.statutory
+  const snapshotStatutory = snapshot && typeof snapshot === "object" ? snapshot as Record<string, unknown> : null
+  const allTransactions = [
+    ...transactions.income.map((transaction) => ({ kind: "income" as const, transaction })),
+    ...transactions.deduction.map((transaction) => ({ kind: "deduction" as const, transaction })),
+  ]
+
+  return (
+    <div className="rounded-xl border bg-background/80 p-4 text-sm shadow-sm">
+      <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="section-kicker">Employee ledger detail</div>
+          <div className="mt-1 font-bold">
+            {record.employee ? `${record.employee.last_name}, ${record.employee.first_name}` : record.employee_id}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {record.employee?.employee_number ?? record.employee_id} · {record.calculation_version}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          {editable && (
+            <>
+              <Button size="sm" variant="outline" onClick={onEditAttendance}>
+                <Edit3 className="h-4 w-4" />
+                Edit attendance
+              </Button>
+              <Button size="sm" variant="outline" onClick={onAddIncome}>
+                <Plus className="h-4 w-4" />
+                Add income
+              </Button>
+              <Button size="sm" variant="outline" onClick={onAddDeduction}>
+                <Plus className="h-4 w-4" />
+                Add deduction
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <DetailMetric label="Days worked" value={attendance ? `${attendance.days_worked}` : "-"} />
+        <DetailMetric label="Absences" value={attendance ? `${attendance.absence_days}` : "-"} />
+        <DetailMetric label="Tardiness" value={attendance ? `${attendance.tardiness_minutes} min` : "-"} />
+        <DetailMetric label="Undertime" value={attendance ? `${attendance.undertime_minutes} min` : "-"} />
+        <DetailMetric label="Overtime" value={attendance ? `${attendance.overtime_hours} hrs` : "-"} />
+        <DetailMetric label="Hourly basis" value={formatCurrency(Number(record.calculation_snapshot?.hourly_rate || 0))} />
+      </div>
+      {attendance?.notes && (
+        <div className="mt-3 rounded-lg bg-secondary/60 p-3 text-xs text-muted-foreground">
+          <strong className="text-foreground">Attendance note:</strong> {attendance.notes}
+        </div>
+      )}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border p-3">
+          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Earnings and attendance</div>
+          <LedgerLine label="Base pay" amount={record.base_pay ?? record.basic_pay} />
+          <LedgerLine label="Attendance adjustment" amount={record.attendance_deductions ?? 0} negative />
+          <LedgerLine label="Basic pay after attendance" amount={record.basic_pay} />
+          <LedgerLine label="Overtime pay" amount={record.overtime_pay} />
+          <LedgerLine label="Other income" amount={record.other_income} />
+          <LedgerLine label="Gross pay" amount={record.gross_pay} emphasized />
+        </div>
+        <div className="rounded-lg border p-3">
+          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Deductions and contributions</div>
+          {statutoryItems.length ? statutoryItems.map((item) => <LedgerLine key={`${item.code}-${item.id ?? item.label}`} label={item.label} amount={item.amount} negative />) : (
+            <>
+              <LedgerLine label="Employee contributions" amount={record.employee_contributions} negative />
+              <LedgerLine label="Withholding tax" amount={record.withholding_tax} negative />
+            </>
+          )}
+          <LedgerLine label="Loan deductions" amount={record.loan_deductions} negative />
+          <LedgerLine label="Other deductions" amount={record.other_deductions} negative />
+          <LedgerLine label="Total employee deductions" amount={record.total_deductions} negative emphasized />
+          <LedgerLine label="Net pay" amount={record.net_pay} emphasized />
+          <LedgerLine label="Employer contributions" amount={record.employer_contributions ?? 0} muted />
+        </div>
+      </div>
+      {snapshotStatutory && (
+        <div className="mt-4 rounded-lg bg-secondary/50 p-3 text-xs text-muted-foreground">
+          <strong className="text-foreground">Statutory bases:</strong>{" "}
+          SSS MSC {formatCurrency(readStatutoryBase(snapshotStatutory.sss, "msc"))} · PhilHealth base {formatCurrency(readStatutoryBase(snapshotStatutory.philhealth, "base"))} · Pag-IBIG base {formatCurrency(readStatutoryBase(snapshotStatutory.pagibig, "base"))}
+        </div>
+      )}
+      {allTransactions.length > 0 && (
+        <div className="mt-4 border-t pt-4">
+          <div className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Manual adjustments</div>
+          <div className="space-y-2">
+            {allTransactions.map(({ kind, transaction }) => (
+              <div key={`${kind}-${transaction.id}`} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-semibold">{transaction.transaction_type}</div>
+                  <div className="text-xs text-muted-foreground">{transaction.description || "No description"} · {transaction.status}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="money font-bold">{kind === "deduction" ? "-" : "+"}{formatCurrency(transaction.amount)}</span>
+                  {editable && transaction.status === "pending" && (
+                    <Button size="sm" onClick={() => onApprove(kind, transaction)}>
+                      <Check className="h-4 w-4" />
+                      Approve
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function readStatutoryBase(value: unknown, key: string) {
+  if (!value || typeof value !== "object") return 0
+  return Number((value as Record<string, unknown>)[key] || 0)
+}
+
+function LedgerLine({ label, amount, negative = false, emphasized = false, muted = false }: { label: string; amount: number; negative?: boolean; emphasized?: boolean; muted?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 py-1.5 ${emphasized ? "border-t pt-2 font-bold" : ""} ${muted ? "text-muted-foreground" : ""}`}>
+      <span>{label}</span>
+      <span className={`money ${negative ? "text-rose-700 dark:text-rose-300" : ""}`}>{negative ? "-" : ""}{formatCurrency(amount)}</span>
+    </div>
+  )
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-secondary/60 p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 font-bold">{value}</div>
+    </div>
+  )
+}
+
+function LedgerInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <Input type="number" min="0" step="0.01" value={value} onChange={(event) => onChange(event.target.value)} required />
+    </div>
+  )
 }

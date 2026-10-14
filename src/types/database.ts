@@ -247,7 +247,28 @@ export interface OtherTransaction {
   description: string | null
   status: RequestStatus | 'approved' | 'pending'
   created_at: string
+  updated_at?: string
   employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
+}
+
+export interface PayrollRecordItem {
+  id?: string
+  payroll_record_id?: string
+  item_type: 'earning' | 'deduction' | 'contribution' | 'tax' | 'loan'
+  code: string
+  label: string
+  amount: number
+  metadata?: Record<string, unknown>
+  created_at?: string
+}
+
+export interface PayrollAttendanceSnapshot {
+  days_worked: number
+  absence_days: number
+  tardiness_minutes: number
+  undertime_minutes: number
+  overtime_hours: number
+  notes?: string | null
 }
 
 export interface PayrollRecord {
@@ -255,18 +276,24 @@ export interface PayrollRecord {
   payroll_period_id: string
   employee_id: string
   salary_type: SalaryType
+  base_pay: number
+  attendance_deductions: number
   basic_pay: number
   overtime_pay: number
   other_income: number
   gross_pay: number
   employee_contributions: number
+  employer_contributions: number
   withholding_tax: number
   loan_deductions: number
   other_deductions: number
   total_deductions: number
   net_pay: number
   calculation_version: string
+  calculation_snapshot?: Record<string, unknown>
   created_at: string
+  attendance?: Attendance | PayrollAttendanceSnapshot | null
+  items?: PayrollRecordItem[]
   employee?: Pick<Employee, 'id' | 'employee_number' | 'first_name' | 'last_name' | 'photo_path'>
 }
 

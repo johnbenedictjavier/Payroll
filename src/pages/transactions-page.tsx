@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ListPagination } from "@/components/ui/list-pagination";
+import { PrintReport } from "@/components/ui/print-report";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -238,7 +239,7 @@ export function TransactionsPage() {
           tone="default"
         />
       </div>
-      <Card>
+      <Card className="print:hidden">
         <CardHeader className="gap-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -356,6 +357,12 @@ export function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+      <PrintReport title={kind === "income" ? "Other income register" : "Other deductions register"} subtitle={`${visibleTransactions.length} filtered transactions · ${statusFilter === "all" ? "All statuses" : statusFilter}`}>
+        <table className="print-table w-full text-xs">
+          <thead><tr><th>Employee</th><th>Period</th><th>Type</th><th>Description</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>{visibleTransactions.map((transaction) => <tr key={`print-transaction-${transaction.id}`}><td>{transaction.employee ? `${transaction.employee.employee_number} · ${transaction.employee.last_name}, ${transaction.employee.first_name}` : transaction.employee_id}</td><td>{periods.data?.find((period) => period.id === transaction.payroll_period_id)?.name ?? "Period"}</td><td>{transaction.transaction_type}</td><td>{transaction.description ?? "-"}</td><td className="money">{formatCurrency(transaction.amount)}</td><td>{transaction.status}</td></tr>)}</tbody>
+        </table>
+      </PrintReport>
 
       <Dialog
         open={open}

@@ -26,7 +26,7 @@ To export the live legacy database without exporting passwords, run `C:\xampp\ph
 
 ## Database
 
-Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Payroll uses built-in prototype calculation defaults and does not require policy or statutory schedules for calculation; the optional statutory reference register is informational only. Do not use these results for actual Philippine salary disbursement until applicable statutory deductions have been implemented and validated.
+Apply the migrations in `supabase/migrations/` using the Supabase CLI or the Supabase SQL editor. Migration `202610150006_statutory_ledger_and_adjustments.sql` adds effective-dated SSS, PhilHealth, Pag-IBIG, and withholding-tax schedules, attendance-based deductions, itemized payroll snapshots, and locked finalized records. Validate the seeded schedules against current agency guidance before production salary disbursement.
 
 ## Deployment
 
