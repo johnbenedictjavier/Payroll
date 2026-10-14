@@ -25,15 +25,13 @@ export type NavigationItem = {
 export type NavigationGroup = {
   id: string;
   label: string;
-  icon: NavigationIcon;
   items: NavigationItem[];
 };
 
 const adminGroups: NavigationGroup[] = [
   {
     id: "workspace",
-    label: "Workspace",
-    icon: LayoutDashboard,
+    label: "Overview",
     items: [
       {
         label: "Dashboard",
@@ -52,8 +50,7 @@ const adminGroups: NavigationGroup[] = [
   },
   {
     id: "employee",
-    label: "Employee",
-    icon: Users,
+    label: "People",
     items: [
       {
         label: "Employees",
@@ -71,8 +68,7 @@ const adminGroups: NavigationGroup[] = [
   },
   {
     id: "payroll",
-    label: "Payroll",
-    icon: ReceiptText,
+    label: "Payroll operations",
     items: [
       {
         label: "Payroll",
@@ -108,8 +104,7 @@ const adminGroups: NavigationGroup[] = [
   },
   {
     id: "settings",
-    label: "Settings",
-    icon: Settings,
+    label: "Administration",
     items: [
       {
         label: "System settings",
@@ -124,8 +119,7 @@ const adminGroups: NavigationGroup[] = [
 const employeeGroups: NavigationGroup[] = [
   {
     id: "workspace",
-    label: "Workspace",
-    icon: LayoutDashboard,
+    label: "Overview",
     items: [
       {
         label: "Dashboard",
@@ -138,8 +132,7 @@ const employeeGroups: NavigationGroup[] = [
   },
   {
     id: "employee",
-    label: "Employee",
-    icon: UserRound,
+    label: "My account",
     items: [
       {
         label: "My profile",
@@ -151,8 +144,7 @@ const employeeGroups: NavigationGroup[] = [
   },
   {
     id: "payroll",
-    label: "Payroll",
-    icon: ReceiptText,
+    label: "Pay information",
     items: [
       {
         label: "My attendance",
@@ -177,7 +169,6 @@ const employeeGroups: NavigationGroup[] = [
   {
     id: "settings",
     label: "Settings",
-    icon: Settings,
     items: [
       {
         label: "Account settings",

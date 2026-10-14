@@ -128,7 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
              <div className={cn('mt-3 flex items-center gap-2', collapsed ? 'flex-col' : 'px-1')}><img src={`${import.meta.env.BASE_URL}assets/ccte.png`} alt="CCTE" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} /><img src={`${import.meta.env.BASE_URL}assets/lcc.png`} alt="Lipa City Colleges" className={cn('object-contain', collapsed ? 'h-7 w-7' : 'h-8 w-8')} />{!collapsed && <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Lipa City Colleges<br />People operations</span>}</div>
          </div>
-           <SidebarNavigation groups={groups} collapsed={collapsed} onRequestExpand={() => setCollapsed(false)} />
+            <SidebarNavigation groups={groups} collapsed={collapsed} />
         <div className="border-t p-3">
            <button type="button" aria-label="Sign out" onClick={handleSignOut} className={cn('flex w-full items-center gap-3 rounded-xl p-2 text-left text-sm text-muted-foreground transition hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40', collapsed && 'justify-center')}>
             <LogOut className="h-4 w-4 shrink-0" />{!collapsed && <span>Sign out</span>}
